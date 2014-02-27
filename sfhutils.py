@@ -5,7 +5,7 @@ import matplotlib.pyplot as pl
 loglsol = 3.839e33
 pc2cm = 3.086e18
 magsphere = 4.*np.pi*100*pc2cm**2
-skiprows = 6 #number of extra rows at the top of the SFH files
+skiprows = 0 #number of extra rows at the top of the SFH files
 
 def load_angst_sfh(name, sfhdir = '', skiprows = skiprows):
     """Read a `match`-produced SFH file into a numpy structured array.

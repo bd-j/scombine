@@ -30,8 +30,7 @@ class Combiner(object):
     attenuation curve):
 
     ::
-        specfile = generate_basis(sfhfile, zmet = 1.0, imf_type = 0, outroot = 'L0_tl0'
-                                  t_lookback = 0.0)
+        specfile = generate_basis(sfhfile, zmet = 1.0, imf_type = 0, outroot = 'L0_tl0', t_lookback = 0.0)
         sc = Combiner(specfile, dust_law = attenuate.calzetti)      #initialize the combiner
         fl = observate.load_filters(['galex_FUV', 'galex_NUV', 'wfc3_uvis_f275w'])  #list of filter objects
         davdist = sc.sexAmodel(1.0, sfhfile)     #age dependent attenuation up to Av = 1.0
@@ -134,7 +133,7 @@ class Combiner(object):
         #enable broadcasting if av and dav aren't vectors
         av = np.atleast_1d(av)
         dav = np.atleast_1d(dav) 
-        #uniform distribution from Av to dAv
+        #uniform distribution from Av to Av + dAv
         avdist = av[None, :] + dav[None,:] * ((np.arange(nsplit) + 0.5)/nsplit)[:,None]
         ee = (np.exp(-self.tau_curve[None,None,:] * avdist[:,:,None]))
         li0_red = (ee * lisplit[None,:,:]).sum(axis = 0)
