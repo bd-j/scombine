@@ -165,7 +165,7 @@ class Combiner(object):
 
 
 def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lookback = 0,
-                   narr = 500, t0 = 0.0005 * 1e9):
+                   narr = 500, t0 = 0.0005 * 1e9, clobber = False):
     """Method to produce a spectral basis file for a given set of time bins.
     Uses subprocess to call autosps from FSPS after generating a top hat user
     SFH file with SFR = 1 Msun/yr, which is a pretty hacky workaround.  Requires
@@ -196,6 +196,10 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
         If it's before the beginning of a given bin then the spectrum and mass for
         that bin are set to zero.
 
+    :param clobber: (deafult False)
+        If False, then if the filename already exists do not recompute the basis and
+        return the filename.  Otherwise, recompute the basis.
+        
     :returns outname:
         A string giving the path and filename of the produced basis file.  The basis file
         consists of  an array of shape [NBIN+1, NWAVE+1] where the extra indices are to
@@ -203,9 +207,12 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
         of the spectrum of each bin (top-hat SFH) at time t_lookback, in units of
         erg/s/cm**2/AA per M_sun/yr at 10pc distance.
     """
-    # Set up the output filename
+    # Set up the output filename and return if file already exists and not clobber
     outname = '{2}_{0}_z{1:.1f}.fits'.format(imfname[imf_type],
                                              np.log10(zmet), outroot)
+    if os.path.exists(outname) and (clobber is False):
+        return outname
+    
     # Read the template SFH file to get time bin definitions
     sfh = utils.load_angst_sfh(sfh_template)
     nbin = len(sfh)
@@ -291,7 +298,7 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
                              'actually the wavelength scale')
     hdu.header['comment'] = ('The last wavelength vector is actually' +
                              ' the stellar mass, in units of M_sun')
-    hdu.writeto(outname)
+    hdu.writeto(outname, clobber =True)
     return outname
 
 

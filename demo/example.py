@@ -1,33 +1,32 @@
-import os
-import glob
+import os, glob
 import numpy as np
-import astropy.io.fits as pyfits
+try:
+    import astropy.io.fits as pyfits
+except (ImportError):
+    import pyfits
 import matplotlib.pyplot as pl
 
-import observate
-import attenuation
-import pycombine
+import observate, attenuation
+import scombine
 import sfhutils as utils
 
 filternamelist = ['galex_FUV','wfc3_uvis_f275w']
 filterlist = observate.load_filters(filternamelist)                  
 sfhfiles = glob.glob('./sfhs/*sfh')
-utils.skiprows = 0 #!!!important!!! for Jake's zcb files there's no header.  otherwise set skiprows to the number of header rows
-utils.skiprows = 6
 
 objname = [os.path.basename(f).split('.')[0] for f in sfhfiles]
 tl = ['present','100 Myr ago']
 
 # Generate a few basis files, one for present day, and
 #  one for a lookback-time of 100Myr.  This is slooow
-#present = pycombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0, outroot = 'L0_tl0', t_lookback = 0.0)
-#previous = pycombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0, outroot = 'L0_tl100Myr', t_lookback = 1e8)
+#present = scombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0, outroot = 'L0_tl0', t_lookback = 0.0)
+#previous = scombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0, outroot = 'L0_tl100Myr', t_lookback = 1e8)
 
 # If bases were already created 
 present, previous = glob.glob('*fits')
 
 # Make a list of 'combiners', where each uses a different spectral basis
-combiners = [pycombine.Combiner(basis, dust_law = attenuation.cardelli) for basis in [present, previous]]
+combiners = [scombine.Combiner(basis, dust_law = attenuation.cardelli) for basis in [present, previous]]
 
 # Initialize magnitude and spectral storage
 all_mags = np.zeros([ len(sfhfiles), len(combiners), len(filterlist)]) 

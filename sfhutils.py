@@ -7,7 +7,7 @@ pc2cm = 3.086e18
 magsphere = 4.*np.pi*100*pc2cm**2
 skiprows = 0 #number of extra rows at the top of the SFH files
 
-def load_angst_sfh(name, sfhdir = '', skiprows = skiprows):
+def load_angst_sfh(name, sfhdir = '', skiprows = 0):
     """Read a `match`-produced SFH file into a numpy structured array.
 
     :param name:
@@ -15,6 +15,11 @@ def load_angst_sfh(name, sfhdir = '', skiprows = skiprows):
     :param skiprows:
         number of header rows in the SFH file to skip
     """
+    #hack to calculate skiprows on the fly
+    tmp = open(name, 'rb')
+    while len(tmp.readline().split()) < 14:
+        skiprows += 1
+    tmp.close()
     ty = '<f8'
     dt = np.dtype([('t1', ty), ('t2',ty), ('dmod',ty), ('sfr',ty), ('met', ty), ('mformed',ty)])
     #fn = glob.glob("{0}*{1}*sfh".format(sfhdir,name))[0]
