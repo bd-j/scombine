@@ -1,14 +1,15 @@
-import os
-import glob
+import os, glob
 import subprocess
 import numpy as np
 
-import astropy.io.fits as pyfits
+try:
+    import astropy.io.fits as pyfits
+except (ImportError):
+    import pyfits
 import astropy.constants as constants
 
-import observate
+import observate, attenuation
 import sfhutils as utils
-import attenuation
 
 lsun = constants.L_sun.cgs.value
 pc = constants.pc.cgs.value
@@ -164,7 +165,7 @@ class Combiner(object):
         return dav
 
 
-def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lookback = 0,
+def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lookback = [0],
                    narr = 500, t0 = 0.0005 * 1e9, clobber = False):
     """Method to produce a spectral basis file for a given set of time bins.
     Uses subprocess to call autosps from FSPS after generating a top hat user
@@ -201,17 +202,19 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
         return the filename.  Otherwise, recompute the basis.
         
     :returns outname:
-        A string giving the path and filename of the produced basis file.  The basis file
+        A string (array) giving the path and filenames of the produced basis file(s).  The basis file
         consists of  an array of shape [NBIN+1, NWAVE+1] where the extra indices are to
         store the wavelength vector and the stellar mass vector.  Otherwise the data consists
         of the spectrum of each bin (top-hat SFH) at time t_lookback, in units of
         erg/s/cm**2/AA per M_sun/yr at 10pc distance.
     """
-    # Set up the output filename and return if file already exists and not clobber
-    outname = '{2}_{0}_z{1:.1f}.fits'.format(imfname[imf_type],
-                                             np.log10(zmet), outroot)
-    if os.path.exists(outname) and (clobber is False):
-        return outname
+
+    # Set up the output filename(s) and return if file(s) already exists and not clobber
+    t_lookback = np.atleast_1d(t_lookback)
+    outnames = ['{2}_{0}_z{1:.1f}_tl{3:2.4f}Gyr.fits'.format(imfname[imf_type], np.log10(zmet), outroot, tl*1e-9) for tl in t_lookback]
+        
+    if (False not in [os.path.exists(o) for o in outnames]) and (clobber is False):
+        return outnames
     
     # Read the template SFH file to get time bin definitions
     sfh = utils.load_angst_sfh(sfh_template)
@@ -220,16 +223,11 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
     sfh['t1'] = 10**sfh['t1']
     sfh[0]['t1'] = 0
 
-    #width =  (abin['t2'] - abin['t1'])
-    #dt = width/narr
-    #time = np.arange(narr+10) * dt
-    #time += t0*1e9
-
     biggest_bin = (sfh['t2'] - sfh['t1']).max()
     smallest_bin = (sfh['t2'] - sfh['t1']).min()
     dt = biggest_bin/narr
     time = np.arange(narr+10) * dt
-    time += t0 #FSPS is not happy with SFHs that start at zero, so pad
+    time += t0 #FSPS is not happy with SFHs that start at zero age, so pad
     nlead = 20.
     leadin = t0/nlead
 
@@ -240,66 +238,99 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
         on = (time-time[0] < (abin['t2'] - abin['t1']))
         sfr[on] = 1.0 #SFR of one
 
-        # Write an SFH file
-        f = open(tabsfh, 'wb')
-        # add a few SFR=zero timesteps before the main SFH
-        for j in [3,2,1, 0]:
-            f.write('{0}  {1}  {2}\n'.format((time[0] - j* leadin)/1e9,
-                                             0.0, zmet * Zsun))
-        # the main SFH
-        for j, t in enumerate(time):
-            f.write('{0}  {1}  {2}\n'.format(t/1e9, sfr[j], zmet * Zsun))
-        f.close()
-
-        # Call autosps and feed it the relevant parameters
-        #    should really just build the tophats from the fsps SSPs....
-        p = subprocess.Popen(executable,stdin=subprocess.PIPE,
-                             stdout = subprocess.PIPE, shell =True)
-        p.stdin.write('{0}\n'.format(imf_type))
-        p.stdin.write('2\n') #use tabulated SFH
-        p.stdin.write('\n') #no dust
-        p.stdin.write('{0}\n'.format(fsps_outname))
-        _ = p.communicate()[0]
-
-        # Read the spectral file produced by fsps
-        a_gyr, logm, logl, logs, spec, wave, hdr = utils.read_fsps(spsdir+'OUTPUTS/'+
-                                                                   fsps_outname + '.spec')
+        # Produce and read an FSPS spectral file
+        a_gyr, logm, logl, logs, spec, wave, hdr = get_fsps_spectrum(time, sfr, zmet, imf_type, leadin)
         # If necessary build the output
         if i is 0:
-            aspec = np.zeros([len(sfh), len(wave)])
-            amass= np.zeros(len(sfh))
+            aspec = np.zeros([ len(t_lookback), len(sfh), len(wave)])
+            amass= np.zeros([ len(t_lookback), len(sfh)])
     
         # Interpolate the fsps spectra (and masses) to the present day
         #   (or to t_lookback), taking into account the non-zero begining of the SFH
-        #   This is inefficient for multiple t_lookbacks...
+        #   use broadcasting to do this for multiple lookback times
         tprime = abin['t2'] + t0 - t_lookback
-        if tprime > 0:
-            inds, weights = utils.weights_1DLinear(np.log(a_gyr),
-                                                np.log(tprime / 1e9))
-            aspec[i,:] = to_cgs * (spec[inds[0],:] * weights.T).sum(axis =0)
-            amass[i] = (weights * 10**logm[inds]).sum()
+        future_sf = tprime <= 0 #if tprime > 0:
+        tprime[future_sf] = 1e9
+        inds, weights = utils.weights_1DLinear(np.log(a_gyr),np.log(tprime / 1e9))
+        inds[future_sf,:] = 0 
+        weights[future_sf,:] = 0 #zero out the contributions from bins younger than the lookback time
+        aspec[:,i,:] = to_cgs * (spec[inds,:] * weights[...,None]).sum(axis =1)
+        amass[:,i] = (weights * 10**logm[inds]).sum(axis = -1)
     
+    w0 = wave.copy()
+    for it, tl in enumerate(t_lookback):
+        # Dumb storage scheme, but subarrays in pyfits binary tables don't work so well
+        # add a dummy wavelength for the stellar masses
+        wave = np.hstack([w0, w0.max()+10])
+        # append the stellar mass to the end of the spectrum
+        spec = np.vstack([aspec[it,...].T, amass[it,:]]).T
+        # append wavelngth as the first 'spectrum'
+        data = np.vstack([wave, spec]) 
 
-    # Dumb storage scheme, but subarrays in pyfits binary tables don't work so well
-    # add a dummy wavelength for the stellar masses
-    wave = np.hstack([wave, wave.max()+10])
-    # append the stellar mass to the end of the spectrum
-    spec = np.vstack([aspec.T, amass]).T
-    # append wavelngth as the first 'spectrum'
-    data = np.vstack([wave, spec]) 
+        # Write the FITS file
+        print('Writing basis file to {0}'.format(outnames[it]))
+        hdu = pyfits.PrimaryHDU(data)
+        hdu.header['BUNIT'] = 'erg/s/cm**2/AA per M_sun/yr at 10pc'
+        hdu.header['comment'] = ('Each spectrum is for a top-hat' +
+                                ' SFH with SFR of 1 M_sun/year.')
+        hdu.header['comment'] = ('The first spectrum vector is ' +
+                                'actually the wavelength scale')
+        hdu.header['comment'] = ('The last wavelength vector is actually' +
+                                ' the stellar mass, in units of M_sun')
+        hdu.writeto(outnames[it], clobber =True)
 
-    # Write the FITS file
-    print('Writing basis file to {0}'.format(outname))
-    hdu = pyfits.PrimaryHDU(data)
-    hdu.header['BUNIT'] = 'erg/s/cm**2/AA per M_sun/yr at 10pc'
-    hdu.header['comment'] = ('Each spectrum is for a top-hat' +
-                             ' SFH with SFR of 1 M_sun/year.')
-    hdu.header['comment'] = ('The first spectrum vector is ' +
-                             'actually the wavelength scale')
-    hdu.header['comment'] = ('The last wavelength vector is actually' +
-                             ' the stellar mass, in units of M_sun')
-    hdu.writeto(outname, clobber =True)
-    return outname
+    return outnames
+
+def get_fsps_spectrum(time, sfr, zmet, imf_type, leadin):
+    """ Use the autosps.exe program of FSPS to generate the spectral
+    evolution for an arbitrary SFH, and return properties of the stellar
+    population so generated.  This is a hacky interface to FSPS.
+
+    :param time:
+       time axis (in yrs) for the SFH definition. This should *not*
+       start at zero. NDARRAY
+
+    :param sfr:
+        SFR (M_Sun/yr) corresponding to the time array.  NDARRAY
+        
+    :param zmet: (default: 1.0)
+        Metallicity in units of solar (linear)
+        
+    :param imf_type: (default: 0)
+        The IMF to use.  Defaults to Salpeter. see FSPS manual for details.
+
+    :param leadin:
+        time step to use for the padding of the time array.  4 extra time steps
+        of size leadin and SFR = 0 will be prepended to the SFH
+
+    :returns sps:
+        see sfhutils.read_fsps() for a description of the output.
+
+    """
+    # Write an SFH file
+    f = open(tabsfh, 'wb')
+    # add a few SFR=zero timesteps before the main SFH
+    for j in [3,2,1,0]:
+        f.write('{0}  {1}  {2}\n'.format((time[0] - j* leadin)/1e9,
+                                         0.0, zmet * Zsun))
+    # the main SFH
+    for j, t in enumerate(time):
+        f.write('{0}  {1}  {2}\n'.format(t/1e9, sfr[j], zmet * Zsun))
+    f.close()
+
+    # Call autosps and feed it the relevant parameters
+    #    should really just build the tophats from the fsps SSPs....
+    p = subprocess.Popen(executable,stdin=subprocess.PIPE,
+                         stdout = subprocess.PIPE, shell =True)
+    p.stdin.write('{0}\n'.format(imf_type))
+    p.stdin.write('2\n') #use tabulated SFH
+    p.stdin.write('\n') #no dust
+    p.stdin.write('{0}\n'.format(fsps_outname))
+    _ = p.communicate()[0]
+
+    # Read the spectral file produced by fsps
+    return utils.read_fsps(spsdir + 'OUTPUTS/' + fsps_outname + '.spec')
+
 
 
 

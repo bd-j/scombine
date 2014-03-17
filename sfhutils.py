@@ -37,7 +37,7 @@ def read_fsps(filename):
     :param filename:
         The file name of the FSPS output .spec file, including path
     :returns age:
-        The age of the stellar population (in Gyr).  1D array
+        The age of the stellar population (in Gyr).  1D array of shape (Nage,)
     :returns mstar:
         The log of the stellar mass (in solar units) at `age'.  1D array
     :returns lbol:
@@ -45,7 +45,8 @@ def read_fsps(filename):
     :returns sfr:
         The log of the SFR (M_sun/yr) at `age'.  1D array
     :returns spectrum:
-        The spectrum of the stellar population at `age'.  (L_sun/AA), 2D array
+        The spectrum of the stellar population at `age'.  (L_sun/AA),
+        2D array of shape (Nage, Nwave)
     :returns wavelngth:
         The wavelength vector (AA).  1D array
     :returns header:
@@ -73,23 +74,31 @@ def read_fsps(filename):
 
 
 
-def weights_1DLinear(model_points, target_points):
+def weights_1DLinear(model_points, target_points, extrapolate = False):
     #well this is ugly.
     order = model_points.argsort()
     mod_sorted = model_points[order]
-    ind_nearest = np.searchsorted(mod_sorted, target_points,side='left')
     
-    maxind = mod_sorted.shape[0]-1
-    edge = ( ind_nearest == 0) | ( ind_nearest == (maxind+1) )
-    inds = (np.vstack([order[np.clip(ind_nearest, 0, maxind)],
-                       order[np.clip(ind_nearest-1, 0, maxind)]])).T
-    
-    d1 = np.abs( model_points[inds[:,0]] - target_points )
-    d2 = np.abs( model_points[inds[:,1]] - target_points )
-    width = d1+d2
-    width[edge] = 1
-    weights = np.vstack([1-d1/width, 1-d2/width]).T
-    weights[edge,:]=0.5
+    x_new_indices = np.searchsorted(mod_sorted, target_points)
+    x_new_indices = x_new_indices.clip(1, len(mod_sorted)-1).astype(int)
+    lo = x_new_indices - 1
+    hi = x_new_indices
+    x_lo = mod_sorted[lo]
+    x_hi = mod_sorted[hi]
+    width = x_hi - x_lo    
+    w_lo = (x_hi - target_points)/width
+    w_hi = (target_points - x_lo)/width
+
+    if extrapolate is False:
+        above_scale = w_lo < 0 #fidn places where target is above or below the model range
+        below_scale = w_hi < 0
+        lo[above_scale] = hi[above_scale] #set the indices to be indentical in these cases
+        hi[below_scale] = lo[below_scale]
+        w_lo[above_scale] = 1 - w_hi[above_scale] #make the combined weights sum to one
+        w_hi[below_scale] = 1 - w_lo[below_scale]
+
+    inds = np.vstack([lo,hi]).T
+    weights = np.vstack([w_lo, w_hi]).T
 
     return inds, weights
 

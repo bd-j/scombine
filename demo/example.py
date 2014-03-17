@@ -1,4 +1,4 @@
-import os, glob
+import os, glob, sys
 import numpy as np
 try:
     import astropy.io.fits as pyfits
@@ -15,15 +15,18 @@ filterlist = observate.load_filters(filternamelist)
 sfhfiles = glob.glob('./sfhs/*sfh')
 
 objname = [os.path.basename(f).split('.')[0] for f in sfhfiles]
+# In general it's good to avoid bin edges (like 100Myr in the example below...)
 tl = ['present','100 Myr ago']
+tval = [0.0,1e8]
 
 # Generate a few basis files, one for present day, and
 #  one for a lookback-time of 100Myr.  This is slooow
-#present = scombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0, outroot = 'L0_tl0', t_lookback = 0.0)
-#previous = scombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0, outroot = 'L0_tl100Myr', t_lookback = 1e8)
+#present = scombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0,  outroot = 'L0_tl100Myr', t_lookback = 0.0)
+#
+present, previous = scombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0, t_lookback = tval)
 
-# If bases were already created 
-present, previous = glob.glob('*fits')
+# If the two bases were already created 
+#present, previous = glob.glob('*fits')
 
 # Make a list of 'combiners', where each uses a different spectral basis
 combiners = [scombine.Combiner(basis, dust_law = attenuation.cardelli) for basis in [present, previous]]
