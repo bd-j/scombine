@@ -13,9 +13,9 @@ import sfhutils as utils
 
 lsun = constants.L_sun.cgs.value
 pc = constants.pc.cgs.value
-lightspeed = 2.998e18 #angstroms/s
+lightspeed = 2.998e18 #AA/s
 #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
-to_cgs = lsun/10**( np.log10(4.0*np.pi)+2*np.log10(pc*10) )
+to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 imfname = ['salp','chab','kroupa']
 
 spsdir = os.getenv('SPS_HOME')
@@ -82,9 +82,9 @@ class Combiner(object):
             sequence of 'sedpy' filter objects for which to return the broadband photometry
             
         :returns spectrum:
-            The composite spectrum, reddened.
+            The composite spectrum, reddened. Units are erg/s/cm^2/AA at a distance of 10pc
         :returns mstar:
-            the current stellar mass
+            the current stellar mass, in M_sun
         :returns broadband:
             A numpy array of broadband AB absolute magnitudes
         """
@@ -102,7 +102,7 @@ class Combiner(object):
         mtot = (sfh['sfr'] * dt).sum()
         mstar = (sfh['sfr'] * self.mstar).sum()
         if filterlist is not None:
-            broadband = observate.getSED(self.wave, total_spec * 2.998e18/self.wave**2, filterlist)
+            broadband = observate.getSED(self.wave, total_spec, filterlist)
         else:
             broadband = None
             
@@ -199,7 +199,7 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
 
     :param clobber: (deafult False)
         If False, then if the filename already exists do not recompute the basis and
-        return the filename.  Otherwise, recompute the basis.
+        return the filename.  Otherwise, force recomputation of the basis.
         
     :returns outname:
         A string (array) giving the path and filenames of the produced basis file(s).  The basis file
@@ -240,6 +240,7 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
 
         # Produce and read an FSPS spectral file
         a_gyr, logm, logl, logs, spec, wave, hdr = get_fsps_spectrum(time, sfr, zmet, imf_type, leadin)
+        spec *= to_cgs * lightspeed/(wave[None,:]**2)
         # If necessary build the output
         if i is 0:
             aspec = np.zeros([ len(t_lookback), len(sfh), len(wave)])
@@ -254,7 +255,7 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
         inds, weights = utils.weights_1DLinear(np.log(a_gyr),np.log(tprime / 1e9))
         inds[future_sf,:] = 0 
         weights[future_sf,:] = 0 #zero out the contributions from bins younger than the lookback time
-        aspec[:,i,:] = to_cgs * (spec[inds,:] * weights[...,None]).sum(axis =1)
+        aspec[:,i,:] = (spec[inds,:] * weights[...,None]).sum(axis =1)
         amass[:,i] = (weights * 10**logm[inds]).sum(axis = -1)
     
     w0 = wave.copy()
@@ -264,7 +265,7 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
         wave = np.hstack([w0, w0.max()+10])
         # append the stellar mass to the end of the spectrum
         spec = np.vstack([aspec[it,...].T, amass[it,:]]).T
-        # append wavelngth as the first 'spectrum'
+        # append wavelength as the first 'spectrum'
         data = np.vstack([wave, spec]) 
 
         # Write the FITS file

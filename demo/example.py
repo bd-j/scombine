@@ -23,7 +23,8 @@ tval = [0.0,1e8]
 #  one for a lookback-time of 100Myr.  This is slooow
 #present = scombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0,  outroot = 'L0_tl100Myr', t_lookback = 0.0)
 #
-present, previous = scombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0, t_lookback = tval)
+clobber = False
+present, previous = scombine.generate_basis(sfhfiles[0], zmet = 1.0, imf_type = 0, t_lookback = tval, clobber = clobber)
 
 # If the two bases were already created 
 #present, previous = glob.glob('*fits')
@@ -51,12 +52,12 @@ for i,f in enumerate(sfhfiles):
         results = cb.combine(f, av = av, dav = dav, filterlist =filterlist)            
         all_mags[i,j,:] = results[2]
         all_spec[i,j,:] = results[0]
-        pl.plot(cb.wave, results[0], label = '{0} @ {1}'.format(objname[i], tl[j]))
+        pl.plot(cb.wave, results[0] * cb.wave, label = '{0} @ {1}'.format(objname[i], tl[j]))
 
 pl.xlim(1e3, 1e4)
-pl.ylim(5e-19,5e-14)
+pl.ylim(1e-3,1e1)
 pl.yscale('log')
 pl.xlabel(r'wavelength ($\AA$)')
-pl.ylabel(r'erg/s/cm$^2$/$\AA$ @ 10pc')
+pl.ylabel(r'$\lambda$L$_\lambda$ (erg/s/cm$^2$ @ 10pc)')
 pl.legend(loc = 'lower right')
 pl.savefig('demo.png')

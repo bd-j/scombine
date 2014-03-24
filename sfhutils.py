@@ -45,7 +45,7 @@ def read_fsps(filename):
     :returns sfr:
         The log of the SFR (M_sun/yr) at `age'.  1D array
     :returns spectrum:
-        The spectrum of the stellar population at `age'.  (L_sun/AA),
+        The spectrum of the stellar population at `age'.  (L_sun/Hz),
         2D array of shape (Nage, Nwave)
     :returns wavelngth:
         The wavelength vector (AA).  1D array
