@@ -7,7 +7,7 @@ pc2cm = 3.086e18
 magsphere = 4.*np.pi*100*pc2cm**2
 skiprows = 0 #number of extra rows at the top of the SFH files
 
-def load_angst_sfh(name, sfhdir = '', skiprows = 0):
+def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False):
     """Read a `match`-produced SFH file into a numpy structured array.
 
     :param name:
@@ -25,7 +25,8 @@ def load_angst_sfh(name, sfhdir = '', skiprows = 0):
     #fn = glob.glob("{0}*{1}*sfh".format(sfhdir,name))[0]
     fn = name
     data = np.loadtxt(fn, usecols = (0,1,2,3,6,12) ,dtype = dt, skiprows = skiprows)
-
+    if fix_youngest:
+        pass
     return data
 
 
@@ -69,12 +70,24 @@ def read_fsps(filename):
             s = [float(l) for l in f.readline().split()]
             spec.append(s)
         f.close()
-
     return np.array(age), np.array(logmass), np.array(loglbol), np.array(logsfr), np.array(spec), np.array(wave), header
 
-
-
 def weights_1DLinear(model_points, target_points, extrapolate = False):
+    """ The interpolation weights are determined from 1D linear interpolation.
+    
+    :param model_points: ndarray, shape(nmod)
+        The parameter coordinate of the available models
+                
+    :param target_points: ndarray, shape(ntarg)
+        The coordinate to which you wish to interpolate
+            
+    :returns inds: ndarray, shape(ntarg,2)
+         The model indices of the interpolates
+             
+    :returns weights: narray, shape (ntarg,2)
+         The weights of each model given by ind in the interpolates
+    """
+
     #well this is ugly.
     order = model_points.argsort()
     mod_sorted = model_points[order]

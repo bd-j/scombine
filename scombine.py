@@ -31,7 +31,7 @@ class Combiner(object):
     attenuation curve):
 
     ::
-        specfile = generate_basis(sfhfile, zmet = 1.0, imf_type = 0, outroot = 'L0_tl0', t_lookback = 0.0)
+        specfile = generate_basis(sfhfile, zmet = 1.0, imf_type = 0, outroot = 'L0_tl0', t_lookback = [0.0])
         sc = Combiner(specfile, dust_law = attenuate.calzetti)      #initialize the combiner
         fl = observate.load_filters(['galex_FUV', 'galex_NUV', 'wfc3_uvis_f275w'])  #list of filter objects
         davdist = sc.sexAmodel(1.0, sfhfile)     #age dependent attenuation up to Av = 1.0
@@ -40,7 +40,7 @@ class Combiner(object):
         
     :param basis_file:
         string name (and path) of a fits file containing the flux (and mass
-        and wavelngth) vectors for this set of time bins (and metallicity)
+        and wavelength) vectors for this set of time bins (and metallicity)
         
     :param dust_law:
         function that returns A_lambda/A_v given a wavelength vector (in AA).
@@ -285,7 +285,8 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
 def get_fsps_spectrum(time, sfr, zmet, imf_type, leadin):
     """ Use the autosps.exe program of FSPS to generate the spectral
     evolution for an arbitrary SFH, and return properties of the stellar
-    population so generated.  This is a hacky interface to FSPS.
+    population so generated.  This is a hacky interface to FSPS, but allows
+    for arbitrary SFH and metallicity evolution.
 
     :param time:
        time axis (in yrs) for the SFH definition. This should *not*
