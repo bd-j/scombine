@@ -1,8 +1,23 @@
+import numpy as np
 import scipy.interpolate as interpolate
 
 times = np.arange(2000)* 1e7
 
 def smooth_sfh(bin_sfh, times):
+    """Method to produce a smooth SFH from a given step-wise SFH, under the
+    constraint that the  total integrated mass at the end of each 'step' is
+    preserved.  Uses a cubic spline with a monotonicity constraint to obtain
+    M_tot(t) which is then differentiated to produce the SFH.
+
+    :param bin_sfh:
+       A stepwise SFH in the format produced by `load_angst_sfh()`. A structured array
+    :param times:
+       The temporal points at which to produce sfr estimates.  Defined as time
+       since the maximum lookback time in the stepwise SFH.
+
+    :returns sfr:
+        The SFR at `times`.
+    """
     mtot = ((10**bin_sfh['t2'] - 10**bin_sfh['t1']) * bin_sfh['sfr'] ).sum()
     tt = 10**bin_sfh[-1]['t2'] - 10**bin_sfh['t1'] 
     tt[0] = 10**bin_sfh[-1]['t2']
@@ -15,7 +30,6 @@ def smooth_sfh(bin_sfh, times):
 
 def smooth_spec(bin_sfh, zmet = 1.0, imf_type = 0, outroot = 'S0',  t_lookback = [0],
                    narr = 2000, t0 = 0.0005 * 1e9, clobber = False):
-
     """Method to produce an FSPS spectrum for a given stwp function SFH.
     Uses subprocess to call autosps from FSPS after generating a smooth SFH from a
     SFH file, which is a pretty hacky workaround.  Requires

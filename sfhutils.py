@@ -29,7 +29,6 @@ def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False):
         pass
     return data
 
-
 def read_fsps(filename):
     """Read a .spec file produced by FSPS and return a number of arrays
     giving quantities of the stellar population.  These are:
@@ -114,8 +113,6 @@ def weights_1DLinear(model_points, target_points, extrapolate = False):
     weights = np.vstack([w_lo, w_hi]).T
 
     return inds, weights
-
-
 
 def plot_agespec(name, sfh, flux, rp, rebin, ylim = None):
     pl.figure(1)
