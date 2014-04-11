@@ -13,7 +13,6 @@ lightspeed = 2.998e18 #AA/s
 #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
-
 def gauss(x, mu, A, sigma):
     mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
     val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
@@ -35,10 +34,16 @@ def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
     A = maxsfr * (sigma * np.sqrt(np.pi * 2))
     if A > 0:
         nburst = np.round(mstar * f_burst / A)
+        #recalculate A to preserve total mass formed in the face of burst number quntization
+        if nburst > 0:
+            A = mstar * f_burst / nburst
+        else:
+            A = 0
+            a = mstar/width
     else:
         nburst = 0
-    #recalculate a to preserve total mass formed in the face of burst number stochasticity
-    a = (mstar - A * nburst) / width
+        a = mstar/width
+        
     tburst = np.random.uniform(0,width, nburst)
     #print(a, nburst, A, sigma)
     return [a, tburst, A, sigma]
@@ -116,7 +121,7 @@ def bursty_sps(lookback_time, lt, sfr, sps):
 
 
 
-def selftest(filename = '/Users/bjohnson/Projects/angst/sfhs/angst_sfhs/gr8.lowres.ben.v1.sfh',
+def examples(filename = '/Users/bjohnson/Projects/angst/sfhs/angst_sfhs/gr8.lowres.ben.v1.sfh',
              lookback_time = [1e9, 10e9]):
     """ A quick test and demonstration of the algorithms.
     """
