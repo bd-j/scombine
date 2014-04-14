@@ -75,7 +75,7 @@ def weights_1DLinear(model_points, target_points, extrapolate = False):
     """ The interpolation weights are determined from 1D linear interpolation.
     
     :param model_points: ndarray, shape(nmod)
-        The parameter coordinate of the available models
+        The parameter coordinate of the available models.  assumed to be sorted ascending
                 
     :param target_points: ndarray, shape(ntarg)
         The coordinate to which you wish to interpolate
@@ -88,8 +88,9 @@ def weights_1DLinear(model_points, target_points, extrapolate = False):
     """
 
     #well this is ugly.
-    order = model_points.argsort()
-    mod_sorted = model_points[order]
+    #order = model_points.argsort()
+    #mod_sorted = model_points[order]
+    mod_sorted = model_points
     
     x_new_indices = np.searchsorted(mod_sorted, target_points)
     x_new_indices = x_new_indices.clip(1, len(mod_sorted)-1).astype(int)
@@ -111,7 +112,7 @@ def weights_1DLinear(model_points, target_points, extrapolate = False):
 
     inds = np.vstack([lo,hi]).T
     weights = np.vstack([w_lo, w_hi]).T
-
+    #inds = order[inds]
     return inds, weights
 
 def plot_agespec(name, sfh, flux, rp, rebin, ylim = None):
