@@ -8,7 +8,7 @@ magsphere = 4.*np.pi*100*pc2cm**2
 skiprows = 0 #number of extra rows at the top of the SFH files
 
 def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False):
-    """Read a `match`-produced SFH file into a numpy structured array.
+    """Read a `match`-produced, zcombined SFH file into a numpy structured array.
 
     :param name:
         string giving the name (and optionally the path) of the SFH file

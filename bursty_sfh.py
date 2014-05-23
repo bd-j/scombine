@@ -6,6 +6,7 @@ import astropy.constants as constants
 import fsps
 
 from sfhutils import weights_1DLinear, load_angst_sfh
+import attenuation
 
 lsun = constants.L_sun.cgs.value
 pc = constants.pc.cgs.value
@@ -76,7 +77,8 @@ def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5, sfh = None):
     
     return times, sfr, f_burst_actual
 
-def bursty_sps(lookback_time, lt, sfr, sps):
+def bursty_sps(lookback_time, lt, sfr, sps,
+               av = None, dav = None, dust_curve = attenuation.cardelli):
     """Obtain the spectrum of a stellar poluation with arbitrary complex
     SFH at a given lookback time.  The SFH is provided in terms of SFR vs
     t_lookback. Note that this in in contrast to the normal specification
@@ -101,15 +103,20 @@ def bursty_sps(lookback_time, lt, sfr, sps):
     :returns int_spec: ndarray, shape(nwave)
         The integrated spectrum at lookback_time
     """
-    dt = lt[1]-lt[0]
+    
+    dt = lt[1] - lt[0]
     sps.params['sfh'] = 0 #set to SSPs
+    #get *all* the ssps
     wave, spec = sps.get_spectrum(peraa = True, tage = 0)
+    spec = redden(spec, av, dav, dust_curve = attenuate.cardelli(wave))
     ssp_ages = 10**sps.log_age #in yrs
     target_lt = np.atleast_1d(lookback_time)
+    #set up output
     int_spec = np.zeros( [ len(target_lt), len(wave) ] )
     aw = np.zeros( [ len(target_lt), len(ssp_ages) ] )
+
     for i,tl in enumerate(target_lt):
-        valid = lt >= tl
+        valid = (lt >= tl)
         inds, weights = weights_1DLinear(np.log(ssp_ages), np.log(lt[valid] - tl))
         #aggregate the weights for each index, after accounting for SFR
         agg_weights = np.bincount( inds.flatten(),
@@ -117,10 +124,31 @@ def bursty_sps(lookback_time, lt, sfr, sps):
                                    minlength = len(ssp_ages) ) * dt
         int_spec[i,:] = (spec * agg_weights[:,None]).sum(axis = 0)
         aw[i,:] = agg_weights
+        
     return wave, int_spec, aw
+    
+def redden(spec, av, dav, nsplit = 9, dust_curve = None):
+        """Redden the spectral components"""
 
+        if (av is None) and (dav is None):
+            return spec
+        if dust_curve is None:
+            print('Warning:  no dust curve was given')
+            return spec
+        #only split if there's a nonzero dAv 
+        nsplit = nsplit * np.any(dav > 0) + 1
+        lisplit = spec.T/nsplit
+        #enable broadcasting if av and dav aren't vectors
+        av = np.atleast_1d(av)
+        dav = np.atleast_1d(dav) 
+        #uniform distribution from Av to Av + dAv
+        avdist = av[None, :] + dav[None,:] * ((np.arange(nsplit) + 0.5)/nsplit)[:,None]
+        #apply it
+        ee = (np.exp(-dust_curve(wave)[None,None,:] * avdist[:,:,None]))
+        spec_red = (ee * lisplit[None,:,:]).sum(axis = 0)
+        return spec_red.T
 
-
+    
 def examples(filename = '/Users/bjohnson/Projects/angst/sfhs/angst_sfhs/gr8.lowres.ben.v1.sfh',
              lookback_time = [1e9, 10e9]):
     """ A quick test and demonstration of the algorithms.
