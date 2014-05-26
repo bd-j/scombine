@@ -15,13 +15,22 @@ lightspeed = 2.998e18 #AA/s
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
 def gauss(x, mu, A, sigma):
+    """
+    Project a sequence of gaussians onto the x vector, using broadcasting.
+    """
     mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
     val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
     return val.sum(axis = -1)
 
-
 def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
                        bin_width = 1.0, bin_sfr = 1e9):
+
+    """
+    Perform the conversion from a burst fraction, width, and
+    'contrast' to to a set of gaussian bursts stochastically
+    distributed in time, each characterized by a burst time, a width,
+    and an amplitude.  Also returns the SFR in the non-bursting mode.
+    """
     
     #print(bin_width, bin_sfr)
     width, mstar = bin_width, bin_width * bin_sfr
@@ -49,8 +58,14 @@ def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
     #print(a, nburst, A, sigma)
     return [a, tburst, A, sigma]
 
-def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5, sfh = None):
-    
+def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
+              sfh = None, bin_res = 10.):
+    """
+    Given a binned SFH as a numpy structured array, and burst
+    parameters, generate a realization of the SFH at high temporal
+    resolution.
+    """
+    #
     a, tburst, A, sigma, f_burst_actual = [],[],[],[],[]
     for i,abin in enumerate(sfh):
      #   print('------\nbin #{0}'.format(i))
@@ -63,7 +78,9 @@ def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5, sfh = None):
             sigma += len(res[1]) * [res[3]]
         #f_burst_actual += [res[4]]
     if len(sigma) == 0:
-        dt = (sfh['t2'] - sfh['t1']).min()/10.
+        #if there were no bursts, set the time resolution to be 1/bin_res of the
+        # shortest bin width.
+        dt = (sfh['t2'] - sfh['t1']).min()/(1.0 * bin_res)
     else:
         dt = np.min(sigma)/5. #make sure you sample the bursts reasonably well
     times = np.arange(np.round(sfh['t2'].max()/dt)) * dt
@@ -77,38 +94,50 @@ def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5, sfh = None):
     
     return times, sfr, f_burst_actual
 
+
 def bursty_sps(lookback_time, lt, sfr, sps,
                av = None, dav = None, dust_curve = attenuation.cardelli):
-    """Obtain the spectrum of a stellar poluation with arbitrary complex
-    SFH at a given lookback time.  The SFH is provided in terms of SFR vs
-    t_lookback. Note that this in in contrast to the normal specification
-    in terms of time since the big bang. Interpolation of the available
-    SSPs to the time sequence of the SFH is accomplished by linear interpolation
-    in log t.  Highly oscillatory SFHs require dense sampling of the temporal
-    axis to obtain accurate results.
+    """
+    Obtain the spectrum of a stellar poluation with arbitrary complex
+    SFH at a given lookback time.  The SFH is provided in terms of SFR
+    vs t_lookback. Note that this in in contrast to the normal
+    specification in terms of time since the big bang. Interpolation
+    of the available SSPs to the time sequence of the SFH is
+    accomplished by linear interpolation in log t.  Highly oscillatory
+    SFHs require dense sampling of the temporal axis to obtain
+    accurate results.
 
-    :param lookback_time: float
+    :param lookback_time: scalar or ndarray, shape (ntarg)
         The lookback time(s) at which to obtain the spectrum.
+        
     :param lt: ndarray, shape (ntime)
-        The lookback time sequence of the provided SFH.  Assumed to have
-        have equal linear time intervals, i.e. to be a regular grid in logt
+        The lookback time sequence of the provided SFH.  Assumed to
+        have have equal linear time intervals, i.e. to be a regular
+        grid in logt
+        
     :param sfr: ndarray, shape (ntime)
         The SFR corresponding to each element of lt
-    :param sps: StellarPopulation
-        The fsps stellar population (with metallicty and IMF parameters set)
-        to use for the SSP spectra
+        
+    :param sps: fsps.StellarPopulation instance
+        The fsps stellar population (with metallicty and IMF
+        parameters set) to use for the SSP spectra.
 
     :returns wave: ndarray, shape (nwave)
         The wavelength array
+        
     :returns int_spec: ndarray, shape(nwave)
         The integrated spectrum at lookback_time
+        
+    :returns aw: ndarray, shape(ntarg, nage)
+        The total weights of each SSP spectrum for each requested
+        lookback_time.  Useful for debugging.
     """
     
     dt = lt[1] - lt[0]
     sps.params['sfh'] = 0 #set to SSPs
     #get *all* the ssps
     wave, spec = sps.get_spectrum(peraa = True, tage = 0)
-    spec = redden(spec, av, dav, dust_curve = attenuate.cardelli(wave))
+    spec, lir = redden(wave, spec, av = av, dav = dav, dust_curve = dust_curve)
     ssp_ages = 10**sps.log_age #in yrs
     target_lt = np.atleast_1d(lookback_time)
     #set up output
@@ -124,34 +153,90 @@ def bursty_sps(lookback_time, lt, sfr, sps,
                                    minlength = len(ssp_ages) ) * dt
         int_spec[i,:] = (spec * agg_weights[:,None]).sum(axis = 0)
         aw[i,:] = agg_weights
-        
-    return wave, int_spec, aw
+    if lir is not None:
+        lir_tot = (aw * lir[None,:]).sum(axis = -1)
+        return wave, int_spec, aw, lir_tot
+    else:
+        return wave, int_spec, aw
+
     
-def redden(spec, av, dav, nsplit = 9, dust_curve = None):
-        """Redden the spectral components"""
+def redden(wave, spec, av = None, dav = None, nsplit = 9,
+           dust_curve = None, wlo = 1216., whi = 2e4):
+    
+    """
+    Redden the spectral components.  The attenuation of a given
+    star is given by the model av + U(0,dav) where U is the uniform
+    random function.  Extensive use of broadcasting.
 
-        if (av is None) and (dav is None):
-            return spec
-        if dust_curve is None:
-            print('Warning:  no dust curve was given')
-            return spec
-        #only split if there's a nonzero dAv 
-        nsplit = nsplit * np.any(dav > 0) + 1
-        lisplit = spec.T/nsplit
-        #enable broadcasting if av and dav aren't vectors
-        av = np.atleast_1d(av)
-        dav = np.atleast_1d(dav) 
-        #uniform distribution from Av to Av + dAv
-        avdist = av[None, :] + dav[None,:] * ((np.arange(nsplit) + 0.5)/nsplit)[:,None]
-        #apply it
-        ee = (np.exp(-dust_curve(wave)[None,None,:] * avdist[:,:,None]))
-        spec_red = (ee * lisplit[None,:,:]).sum(axis = 0)
-        return spec_red.T
+    :params wave:  ndarray of shape (nwave)
+        The wavelength vector.
+    
+    :params spec: ndarray of shape (nspec, nwave)
+        The input spectra to redden. nspec is the number of spectra.
+        
+    :params av: scalar or ndarray of shape (nspec)
+        The attenuation at V band, in magnitudes, that affects all
+        stars equally.  Can be a scalar if its the same for all
+        spectra or an ndarray to apply different reddenings to each
+        spectrum.
 
+    :params dav: scalar or ndarray of shape (nspec)
+        The maximum differential attenuation, in V band magnitudes.
+        Can be a scalar if it's the same for all spectra or an array
+        to have a different value for each spectrum.  Stars are
+        assumed to be affected by an random additional amount of
+        attenuation uniformly distributed from 0 to dav.
+
+    :params nsplit: (default 10.0)
+        The number of pieces in which to split each spectrum when
+        performing the integration over differntial attenuation.
+        Higher nsplit ensures greater accuracy, especially for very
+        large dav.  However, because of the broadcasting, large nsplit
+        can result in memory constraint issues.
+
+    :params dust_curve: function
+        The function giving the attenuation curve normalized to the V
+        band, \tau_lambda/\tau_v.  This function must accept a
+        wavelength vector as its argument and return tau_lambda/tau_v
+        at each wavelength.
+
+    :returns spec: ndarray of shape (nwave, nspec)
+        The attenuated spectra.
+
+    :returns lir: ndarray of shape (nspec)
+        The integrated difference between the unattenuated and
+        attenuated spectra, for each spectrum. The integral is
+        performed over the interval [wlo,whi].
+        
+    """
+
+    if (av is None) and (dav is None):
+        return spec, None
+    if dust_curve is None:
+        print('Warning:  no dust curve was given')
+        return spec, None
+    #only split if there's a nonzero dAv 
+    nsplit = nsplit * np.any(dav > 0) + 1
+    lisplit = spec/nsplit
+    #enable broadcasting if av and dav aren't vectors
+    #  and convert to an optical depth
+    av = np.atleast_1d(av)/1.086
+    dav = np.atleast_1d(dav)/1.086
+    #uniform distribution from Av to Av + dAv
+    avdist = av[None, :] + dav[None,:] * ((np.arange(nsplit) + 0.5)/nsplit)[:,None]
+    #apply it
+    ee = (np.exp(-dust_curve(wave)[None,None,:] * avdist[:,:,None]))
+    spec_red = (ee * lisplit[None,:,:]).sum(axis = 0)
+    #get the integral of the attenuated light in the optical-
+    # NIR region of the spectrum
+    opt = (wave >= wlo) & (wave <= whi) 
+    lir = np.trapz((spec - spec_red)[:,opt], wave[opt], axis = -1)
+    return spec_red, lir
     
 def examples(filename = '/Users/bjohnson/Projects/angst/sfhs/angst_sfhs/gr8.lowres.ben.v1.sfh',
              lookback_time = [1e9, 10e9]):
-    """ A quick test and demonstration of the algorithms.
+    """
+    A quick test and demonstration of the algorithms.
     """
     sps = fsps.StellarPopulation()
 

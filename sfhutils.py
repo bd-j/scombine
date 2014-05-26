@@ -103,12 +103,15 @@ def weights_1DLinear(model_points, target_points, extrapolate = False):
     w_hi = (target_points - x_lo)/width
 
     if extrapolate is False:
+        #and of course I have these labels backwards
         above_scale = w_lo < 0 #fidn places where target is above or below the model range
         below_scale = w_hi < 0
         lo[above_scale] = hi[above_scale] #set the indices to be indentical in these cases
         hi[below_scale] = lo[below_scale]
-        w_lo[above_scale] = 1 - w_hi[above_scale] #make the combined weights sum to one
-        w_hi[below_scale] = 1 - w_lo[below_scale]
+        w_lo[above_scale] = 0 #make the combined weights sum to one
+        w_hi[above_scale] = 1
+        w_hi[below_scale] = 0
+        w_lo[below_scale] = 1
 
     inds = np.vstack([lo,hi]).T
     weights = np.vstack([w_lo, w_hi]).T
