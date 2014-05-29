@@ -83,6 +83,7 @@ def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
     
     return times, sfr, f_burst_actual
 
+
 def bursty_sps(lookback_time, lt, sfr, sps,
                av = None, dav = None, dust_curve = attenuation.cardelli):
     """
@@ -174,6 +175,7 @@ def gauss(x, mu, A, sigma):
     val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
     return val.sum(axis = -1)
 
+
 def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
                        bin_width = 1.0, bin_sfr = 1e9):
 
@@ -244,9 +246,6 @@ def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
     tburst = np.random.uniform(0,width, nburst)
     #print(a, nburst, A, sigma)
     return [a, tburst, A, sigma]
-
-
-
 
 #def redden_analytic(wave, spec, av = None, dav = None,
 #                    dust_curve = None, wlo = 1216., whi = 2e4, **kwargs):
