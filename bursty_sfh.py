@@ -14,56 +14,47 @@ lightspeed = 2.998e18 #AA/s
 #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
-def gauss(x, mu, A, sigma):
-    """
-    Project a sequence of gaussians onto the x vector, using broadcasting.
-    """
-    mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
-    val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
-    return val.sum(axis = -1)
-
-def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
-                       bin_width = 1.0, bin_sfr = 1e9):
-
-    """
-    Perform the conversion from a burst fraction, width, and
-    'contrast' to to a set of gaussian bursts stochastically
-    distributed in time, each characterized by a burst time, a width,
-    and an amplitude.  Also returns the SFR in the non-bursting mode.
-    """
-    
-    #print(bin_width, bin_sfr)
-    width, mstar = bin_width, bin_width * bin_sfr
-    if width < fwhm_burst * 2:
-        f_burst = 0.0 #no bursts if bin is short - they are resolved
-    #constant SF component
-    a = mstar * (1 - f_burst) /width
-    #determine burst_parameters
-    sigma = fwhm_burst / 2.355
-    maxsfr = contrast * a
-    A = maxsfr * (sigma * np.sqrt(np.pi * 2))
-    if A > 0:
-        nburst = np.round(mstar * f_burst / A)
-        #recalculate A to preserve total mass formed in the face of burst number quntization
-        if nburst > 0:
-            A = mstar * f_burst / nburst
-        else:
-            A = 0
-            a = mstar/width
-    else:
-        nburst = 0
-        a = mstar/width
-        
-    tburst = np.random.uniform(0,width, nburst)
-    #print(a, nburst, A, sigma)
-    return [a, tburst, A, sigma]
 
 def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
               sfh = None, bin_res = 10.):
     """
     Given a binned SFH as a numpy structured array, and burst
     parameters, generate a realization of the SFH at high temporal
-    resolution.
+    resolution. The output time resolution will be approximately
+    fwhm_burst/12 unless no bursts are generated, in which case the
+    output time resolution is the minimum bin width divided by
+    bin_res.
+
+    :params fwhm_burst: default 0.05
+        the fwhm of the bursts to add, in Gyr.
+        
+    :params f_burst: default, 0.5
+        the fraction of stellar mass formed in each bin that is formed
+        in the bursts.
+        
+    :params contrast: default, 5
+        the approximate maximum height or amplitude of the bursts
+        above the constant background SFR.  This is only approximate
+        since it is altered to preserve f_burst and fwhm_burst even
+        though the number of busrsts is quantized.
+        
+    :params sfh: structured ndarray
+        A binned sfh in numpy structured array format.  Usually the
+        result of sfhutils.load_angst_sfh()
+        
+    :params bin_res: default 10
+        Factor by which to increase the time resolution of the output
+        grid, relative to the shortest bin width in the supplied SFH.
+
+    :returns times:  ndarray of shape (nt)
+        The output linear, regular temporal grid of lookback times.
+
+    :returns sfr: ndarray of shape (nt)
+        The resulting SFR at each time.
+
+    :returns f_burst_actual:
+        In case f_burst changed due to burst number discretezation.
+        Shouldn't happen though.        
     """
     #
     a, tburst, A, sigma, f_burst_actual = [],[],[],[],[]
@@ -84,8 +75,6 @@ def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
     else:
         dt = np.min(sigma)/5. #make sure you sample the bursts reasonably well
     times = np.arange(np.round(sfh['t2'].max()/dt)) * dt
-    #print(dt, np.round(sfh['t2'].max()/dt))
-    #sys.exit()
     #figure out which bin each time is in
     bins = [sfh[0]['t1']] + sfh['t2'].tolist()
     bin_num = np.digitize(times, bins) -1
@@ -93,7 +82,6 @@ def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
     sfr = np.array(a)[bin_num] + gauss(times, tburst, A, sigma)
     
     return times, sfr, f_burst_actual
-
 
 def bursty_sps(lookback_time, lt, sfr, sps,
                av = None, dav = None, dust_curve = attenuation.cardelli):
@@ -159,9 +147,116 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     else:
         return wave, int_spec, aw
 
+def gauss(x, mu, A, sigma):
+    """
+    Project the sum of a sequence of gaussians onto the x vector,
+    using broadcasting.
+
+    :params x: ndarray
+        The array onto which the gaussians are to be projected.
+        
+    :params mu:
+        Sequence of gaussian centers, same units as x.
+
+    :params A:
+        Sequence of gaussian normalization (that is, the area of the
+        gaussians), same length as mu.
+        
+    :params sigma:
+        Sequence of gaussian standard deviations or dispersions, same
+        length as mu.
+
+    :returns value:
+       The value of the sum of the gaussians at positions x.
+        
+    """
+    mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
+    val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
+    return val.sum(axis = -1)
+
+def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
+                       bin_width = 1.0, bin_sfr = 1e9):
+
+    """
+    Perform the conversion from a burst fraction, width, and
+    'contrast' to to a set of gaussian bursts stochastically
+    distributed in time, each characterized by a burst time, a width,
+    and an amplitude.  Also returns the SFR in the non-bursting mode.
+
+    :params fwhm_burst: default 0.05
+        The fwhm of the bursts to add, in Gyr.
+        
+    :params f_burst: default, 0.5
+        The fraction of stellar mass formed in each bin that is formed
+        in the bursts.
+        
+    :params contrast: default, 5
+        The approximate maximum height or amplitude of the bursts
+        above the constant background SFR.  This is only approximate
+        since it is altered to preserve f_burst and fwhm_burst even
+        though the number of busrsts is quantized.
+
+    :params bin_width: default, 1.0
+        The width of the bin in Gyr.
+
+    :params bin_sfr:
+        The average sfr for this time period.  The total stellar mass
+        formed during this bin is just bin_sfr * bin_width.
+
+    :returns a:
+        The sfr of the non bursting constant component
+
+    :returns tburst:
+        A sequence of times, of length nburst, where the time gives
+        the time of the peak of the gaussian burst
+        
+    :returns A:
+        A sequence of normalizations of length nburst.  each A value
+        gives the stellar mass formed in that burst.
+
+    :returns sigma:
+        A sequence of burst widths.  This is usually just
+        fwhm_burst/2.35 repeated nburst times.
+    """
     
+    #print(bin_width, bin_sfr)
+    width, mstar = bin_width, bin_width * bin_sfr
+    if width < fwhm_burst * 2:
+        f_burst = 0.0 #no bursts if bin is short - they are resolved
+    #constant SF component
+    a = mstar * (1 - f_burst) /width
+    #determine burst_parameters
+    sigma = fwhm_burst / 2.355
+    maxsfr = contrast * a
+    A = maxsfr * (sigma * np.sqrt(np.pi * 2))
+    if A > 0:
+        nburst = np.round(mstar * f_burst / A)
+        #recalculate A to preserve total mass formed in the face of burst number quntization
+        if nburst > 0:
+            A = mstar * f_burst / nburst
+        else:
+            A = 0
+            a = mstar/width
+    else:
+        nburst = 0
+        a = mstar/width
+        
+    tburst = np.random.uniform(0,width, nburst)
+    #print(a, nburst, A, sigma)
+    return [a, tburst, A, sigma]
+
+
+
+
+#def redden_analytic(wave, spec, av = None, dav = None,
+#                    dust_curve = None, wlo = 1216., whi = 2e4, **kwargs):
+#    k = dust_curve(wave)
+#    alambda = av / (np.log10(av+dav)) * ( 10**(-0.4 * k * (av+dav)) - 10**(-0.4 * k * av))
+#    spec_red = spec * alambda
+#    return spec_red, None
+        
 def redden(wave, spec, av = None, dav = None, nsplit = 9,
-           dust_curve = None, wlo = 1216., whi = 2e4):
+           dust_curve = None, wlo = 1216., whi = 2e4, **kwargs):
     
     """
     Redden the spectral components.  The attenuation of a given
@@ -219,20 +314,27 @@ def redden(wave, spec, av = None, dav = None, nsplit = 9,
     nsplit = nsplit * np.any(dav > 0) + 1
     lisplit = spec/nsplit
     #enable broadcasting if av and dav aren't vectors
-    #  and convert to an optical depth
+    #  and convert to an optical depth instead of an attenuation
     av = np.atleast_1d(av)/1.086
     dav = np.atleast_1d(dav)/1.086
+    lisplit = np.atleast_2d(lisplit)
     #uniform distribution from Av to Av + dAv
     avdist = av[None, :] + dav[None,:] * ((np.arange(nsplit) + 0.5)/nsplit)[:,None]
     #apply it
+    print(avdist.shape)
     ee = (np.exp(-dust_curve(wave)[None,None,:] * avdist[:,:,None]))
+    print(avdist.shape, ee.shape, lisplit.shape)
     spec_red = (ee * lisplit[None,:,:]).sum(axis = 0)
     #get the integral of the attenuated light in the optical-
     # NIR region of the spectrum
     opt = (wave >= wlo) & (wave <= whi) 
     lir = np.trapz((spec - spec_red)[:,opt], wave[opt], axis = -1)
-    return spec_red, lir
-    
+    return np.squeeze(spec_red), lir
+
+
+
+
+
 def examples(filename = '/Users/bjohnson/Projects/angst/sfhs/angst_sfhs/gr8.lowres.ben.v1.sfh',
              lookback_time = [1e9, 10e9]):
     """
