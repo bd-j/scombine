@@ -25,24 +25,24 @@ def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
     output time resolution is the minimum bin width divided by
     bin_res.
 
-    :params fwhm_burst: default 0.05
+    :param fwhm_burst: default 0.05
         the fwhm of the bursts to add, in Gyr.
         
-    :params f_burst: default, 0.5
+    :param f_burst: default, 0.5
         the fraction of stellar mass formed in each bin that is formed
         in the bursts.
         
-    :params contrast: default, 5
+    :param contrast: default, 5
         the approximate maximum height or amplitude of the bursts
         above the constant background SFR.  This is only approximate
         since it is altered to preserve f_burst and fwhm_burst even
         though the number of busrsts is quantized.
         
-    :params sfh: structured ndarray
+    :param sfh: structured ndarray
         A binned sfh in numpy structured array format.  Usually the
         result of sfhutils.load_angst_sfh()
         
-    :params bin_res: default 10
+    :param bin_res: default 10
         Factor by which to increase the time resolution of the output
         grid, relative to the shortest bin width in the supplied SFH.
 
@@ -97,26 +97,26 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     SFHs require dense sampling of the temporal axis to obtain
     accurate results.
 
-    :params lookback_time: scalar or ndarray, shape (ntarg)
+    :param lookback_time: scalar or ndarray, shape (ntarg)
         The lookback time(s) at which to obtain the spectrum. In yrs.
         
-    :params lt: ndarray, shape (ntime)
+    :param lt: ndarray, shape (ntime)
         The lookback time sequence of the provided SFH.  Assumed to
         have have equal linear time intervals, i.e. to be a regular
         grid in logt
         
-    :params sfr: ndarray, shape (ntime)
+    :param sfr: ndarray, shape (ntime)
         The SFR corresponding to each element of lt, in M_sun/yr.
         
-    :params sps: fsps.StellarPopulation instance
+    :param sps: fsps.StellarPopulation instance
         The fsps stellar population (with metallicty and IMF
         parameters set) to use for the SSP spectra.
 
-    :params av: scalar or ndarray of shape (nspec)
+    :param av: scalar or ndarray of shape (nspec)
         The attenuation at V band, in magnitudes, that affects all
         stars equally. Passed to redden()
 
-    :params dav: scalar or ndarray of shape (nspec)
+    :param dav: scalar or ndarray of shape (nspec)
         The maximum differential attenuation, in V band
         magnitudes. Passed to redden()
         
@@ -168,17 +168,17 @@ def gauss(x, mu, A, sigma):
     Project the sum of a sequence of gaussians onto the x vector,
     using broadcasting.
 
-    :params x: ndarray
+    :param x: ndarray
         The array onto which the gaussians are to be projected.
         
-    :params mu:
+    :param mu:
         Sequence of gaussian centers, same units as x.
 
-    :params A:
+    :param A:
         Sequence of gaussian normalization (that is, the area of the
         gaussians), same length as mu.
         
-    :params sigma:
+    :param sigma:
         Sequence of gaussian standard deviations or dispersions, same
         length as mu.
 
@@ -200,23 +200,23 @@ def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
     distributed in time, each characterized by a burst time, a width,
     and an amplitude.  Also returns the SFR in the non-bursting mode.
 
-    :params fwhm_burst: default 0.05
+    :param fwhm_burst: default 0.05
         The fwhm of the bursts to add, in Gyr.
         
-    :params f_burst: default, 0.5
+    :param f_burst: default, 0.5
         The fraction of stellar mass formed in each bin that is formed
         in the bursts.
         
-    :params contrast: default, 5
+    :param contrast: default, 5
         The approximate maximum height or amplitude of the bursts
         above the constant background SFR.  This is only approximate
         since it is altered to preserve f_burst and fwhm_burst even
         though the number of busrsts is quantized.
 
-    :params bin_width: default, 1.0
+    :param bin_width: default, 1.0
         The width of the bin in Gyr.
 
-    :params bin_sfr:
+    :param bin_sfr:
         The average sfr for this time period.  The total stellar mass
         formed during this bin is just bin_sfr * bin_width.
 
@@ -266,6 +266,7 @@ def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
 
 #def redden_analytic(wave, spec, av = None, dav = None,
 #                    dust_curve = None, wlo = 1216., whi = 2e4, **kwargs):
+# Incorrect.  
 #    k = dust_curve(wave)
 #    alambda = av / (np.log10(av+dav)) * ( 10**(-0.4 * k * (av+dav)) - 10**(-0.4 * k * av))
 #    spec_red = spec * alambda
@@ -279,33 +280,33 @@ def redden(wave, spec, av = None, dav = None, nsplit = 9,
     star is given by the model av + U(0,dav) where U is the uniform
     random function.  Extensive use of broadcasting.
 
-    :params wave:  ndarray of shape (nwave)
+    :param wave:  ndarray of shape (nwave)
         The wavelength vector.
     
-    :params spec: ndarray of shape (nspec, nwave)
+    :param spec: ndarray of shape (nspec, nwave)
         The input spectra to redden. nspec is the number of spectra.
         
-    :params av: scalar or ndarray of shape (nspec)
+    :param av: scalar or ndarray of shape (nspec)
         The attenuation at V band, in magnitudes, that affects all
         stars equally.  Can be a scalar if its the same for all
         spectra or an ndarray to apply different reddenings to each
         spectrum.
 
-    :params dav: scalar or ndarray of shape (nspec)
+    :param dav: scalar or ndarray of shape (nspec)
         The maximum differential attenuation, in V band magnitudes.
         Can be a scalar if it's the same for all spectra or an array
         to have a different value for each spectrum.  Stars are
         assumed to be affected by an random additional amount of
         attenuation uniformly distributed from 0 to dav.
 
-    :params nsplit: (default 10.0)
+    :param nsplit: (default 10.0)
         The number of pieces in which to split each spectrum when
         performing the integration over differntial attenuation.
         Higher nsplit ensures greater accuracy, especially for very
         large dav.  However, because of the broadcasting, large nsplit
         can result in memory constraint issues.
 
-    :params dust_curve: function
+    :param dust_curve: function
         The function giving the attenuation curve normalized to the V
         band, \tau_lambda/\tau_v.  This function must accept a
         wavelength vector as its argument and return tau_lambda/tau_v
