@@ -85,7 +85,8 @@ def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
 
 
 def bursty_sps(lookback_time, lt, sfr, sps,
-               av = None, dav = None, dust_curve = attenuation.cardelli):
+               av = None, dav = None, nsplit = 9,
+               dust_curve = attenuation.cardelli):
     """
     Obtain the spectrum of a stellar poluation with arbitrary complex
     SFH at a given lookback time.  The SFH is provided in terms of SFR
@@ -96,37 +97,51 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     SFHs require dense sampling of the temporal axis to obtain
     accurate results.
 
-    :param lookback_time: scalar or ndarray, shape (ntarg)
-        The lookback time(s) at which to obtain the spectrum.
+    :params lookback_time: scalar or ndarray, shape (ntarg)
+        The lookback time(s) at which to obtain the spectrum. In yrs.
         
-    :param lt: ndarray, shape (ntime)
+    :params lt: ndarray, shape (ntime)
         The lookback time sequence of the provided SFH.  Assumed to
         have have equal linear time intervals, i.e. to be a regular
         grid in logt
         
-    :param sfr: ndarray, shape (ntime)
-        The SFR corresponding to each element of lt
+    :params sfr: ndarray, shape (ntime)
+        The SFR corresponding to each element of lt, in M_sun/yr.
         
-    :param sps: fsps.StellarPopulation instance
+    :params sps: fsps.StellarPopulation instance
         The fsps stellar population (with metallicty and IMF
         parameters set) to use for the SSP spectra.
 
+    :params av: scalar or ndarray of shape (nspec)
+        The attenuation at V band, in magnitudes, that affects all
+        stars equally. Passed to redden()
+
+    :params dav: scalar or ndarray of shape (nspec)
+        The maximum differential attenuation, in V band
+        magnitudes. Passed to redden()
+        
     :returns wave: ndarray, shape (nwave)
         The wavelength array
         
-    :returns int_spec: ndarray, shape(nwave)
-        The integrated spectrum at lookback_time
+    :returns int_spec: ndarray, shape(ntarg, nwave)
+        The integrated spectrum at lookback_time, in L_sun/AA
         
     :returns aw: ndarray, shape(ntarg, nage)
         The total weights of each SSP spectrum for each requested
         lookback_time.  Useful for debugging.
+
+    :returns lir: optional, ndarray, shape(ntarg)
+        The total absorbed luminosity, in L_sun.  Only returned if the
+        attenuation curve, dav, and av are not None.
+        
     """
     
     dt = lt[1] - lt[0]
     sps.params['sfh'] = 0 #set to SSPs
     #get *all* the ssps
     wave, spec = sps.get_spectrum(peraa = True, tage = 0)
-    spec, lir = redden(wave, spec, av = av, dav = dav, dust_curve = dust_curve)
+    spec, lir = redden(wave, spec, av = av, dav = dav,
+                       dust_curve = dust_curve, nsplit =nsplit)
     ssp_ages = 10**sps.log_age #in yrs
     target_lt = np.atleast_1d(lookback_time)
     #set up output
@@ -231,11 +246,13 @@ def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
     sigma = fwhm_burst / 2.355
     maxsfr = contrast * a
     A = maxsfr * (sigma * np.sqrt(np.pi * 2))
+    tburst = []
     if A > 0:
         nburst = np.round(mstar * f_burst / A)
         #recalculate A to preserve total mass formed in the face of burst number quntization
         if nburst > 0:
             A = mstar * f_burst / nburst
+            tburst = np.random.uniform(0,width, nburst)
         else:
             A = 0
             a = mstar/width
@@ -243,7 +260,7 @@ def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
         nburst = 0
         a = mstar/width
         
-    tburst = np.random.uniform(0,width, nburst)
+    
     #print(a, nburst, A, sigma)
     return [a, tburst, A, sigma]
 
@@ -320,9 +337,9 @@ def redden(wave, spec, av = None, dav = None, nsplit = 9,
     #uniform distribution from Av to Av + dAv
     avdist = av[None, :] + dav[None,:] * ((np.arange(nsplit) + 0.5)/nsplit)[:,None]
     #apply it
-    print(avdist.shape)
+    #print(avdist.shape)
     ee = (np.exp(-dust_curve(wave)[None,None,:] * avdist[:,:,None]))
-    print(avdist.shape, ee.shape, lisplit.shape)
+    #print(avdist.shape, ee.shape, lisplit.shape)
     spec_red = (ee * lisplit[None,:,:]).sum(axis = 0)
     #get the integral of the attenuated light in the optical-
     # NIR region of the spectrum
