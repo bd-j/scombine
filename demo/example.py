@@ -1,12 +1,8 @@
 import os, glob, sys
 import numpy as np
-try:
-    import astropy.io.fits as pyfits
-except (ImportError):
-    import pyfits
 import matplotlib.pyplot as pl
 
-import observate, attenuation
+from sedpy import observate, attenuation
 import scombine
 import sfhutils as utils
 

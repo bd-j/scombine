@@ -2,18 +2,17 @@ import sys
 import numpy as np
 import matplotlib.pyplot as pl
 
-import astropy.constants as constants
+from astropy import constants
 import fsps
 
 from sfhutils import weights_1DLinear, load_angst_sfh
-import attenuation
+from sedpy import attenuation
 
 lsun = constants.L_sun.cgs.value
 pc = constants.pc.cgs.value
 lightspeed = 2.998e18 #AA/s
 #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
-
 
 def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
               sfh = None, bin_res = 10.):
@@ -102,8 +101,7 @@ def bursty_sps(lookback_time, lt, sfr, sps,
         
     :param lt: ndarray, shape (ntime)
         The lookback time sequence of the provided SFH.  Assumed to
-        have have equal linear time intervals, i.e. to be a regular
-        grid in logt
+        have have equal linear time intervals.
         
     :param sfr: ndarray, shape (ntime)
         The SFR corresponding to each element of lt, in M_sun/yr.
@@ -140,6 +138,7 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     sps.params['sfh'] = 0 #set to SSPs
     #get *all* the ssps
     wave, spec = sps.get_spectrum(peraa = True, tage = 0)
+    #redden the ssps
     spec, lir = redden(wave, spec, av = av, dav = dav,
                        dust_curve = dust_curve, nsplit =nsplit)
     ssp_ages = 10**sps.log_age #in yrs
@@ -149,9 +148,9 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     aw = np.zeros( [ len(target_lt), len(ssp_ages) ] )
 
     for i,tl in enumerate(target_lt):
-        valid = (lt >= tl)
+        valid = (lt >= tl) #only consider time points in the past of this lookback time.
         inds, weights = weights_1DLinear(np.log(ssp_ages), np.log(lt[valid] - tl))
-        #aggregate the weights for each index, after accounting for SFR
+        #aggregate the weights for each ssp time index, after accounting for SFR
         agg_weights = np.bincount( inds.flatten(),
                                    weights = (weights * sfr[valid,None]).flatten(),
                                    minlength = len(ssp_ages) ) * dt
@@ -347,8 +346,6 @@ def redden(wave, spec, av = None, dav = None, nsplit = 9,
     opt = (wave >= wlo) & (wave <= whi) 
     lir = np.trapz((spec - spec_red)[:,opt], wave[opt], axis = -1)
     return np.squeeze(spec_red), lir
-
-
 
 
 

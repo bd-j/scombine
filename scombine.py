@@ -1,14 +1,12 @@
 import os, glob
 import subprocess
 import numpy as np
-
 try:
     import astropy.io.fits as pyfits
 except (ImportError):
     import pyfits
-import astropy.constants as constants
-
-import observate, attenuation
+from astropy import constants
+from sedpy import observate, attenuation
 import sfhutils as utils
 
 lsun = constants.L_sun.cgs.value
@@ -25,18 +23,26 @@ tabsfh = spsdir + 'data/sfh.dat'
 fsps_outname = 'angstbin.out'
 
 class Combiner(object):
-    """Class for linearly combining spectra of different SF components,
-    accounting for dust. Usage example (to obtain present day UV magnitudes
-    for a given SFH assuming Salpeter IMF, solar metallicity, and the Calzetti
-    attenuation curve):
+    """
+    Class for linearly combining spectra of different SF components,
+    accounting for dust. Usage example (to obtain present day UV
+    magnitudes for a given SFH assuming Salpeter IMF, solar
+    metallicity, and the Calzetti attenuation curve):
 
     ::
-        specfile = generate_basis(sfhfile, zmet = 1.0, imf_type = 0, outroot = 'L0_tl0', t_lookback = [0.0])
-        sc = Combiner(specfile, dust_law = attenuate.calzetti)      #initialize the combiner
-        fl = observate.load_filters(['galex_FUV', 'galex_NUV', 'wfc3_uvis_f275w'])  #list of filter objects
-        davdist = sc.sexAmodel(1.0, sfhfile)     #age dependent attenuation up to Av = 1.0
-        spec, mstar, phot = sc.combine(sfhfile, av = 0.1, dav = davdist, filterlist = fl)
-        spec, mstar, phot = sc.combine(sfhfile2, av = 0.1, dav = davdist, filterlist = fl) #another SFH, with same binning and metallicity
+        specfile = generate_basis(sfhfile, zmet = 1.0, imf_type = 0,
+                                  outroot = 'L0_tl0', t_lookback = [0.0])
+        #initialize the combiner
+        sc = Combiner(specfile, dust_law = attenuate.calzetti)
+        #list of filter objects
+        fl = observate.load_filters(['galex_FUV', 'galex_NUV', 'wfc3_uvis_f275w'])
+        #age dependent attenuation up to Av = 1.0
+        davdist = sc.sexAmodel(1.0, sfhfile)    
+        spec, mstar, phot = sc.combine(sfhfile, av = 0.1, dav = davdist,
+                                       filterlist = fl)
+        #another SFH, with same binning and metallicity
+        spec, mstar, phot = sc.combine(sfhfile2, av = 0.1, dav = davdist,
+                                       filterlist = fl) 
         
     :param basis_file:
         string name (and path) of a fits file containing the flux (and mass
@@ -60,8 +66,9 @@ class Combiner(object):
         ff.close()
 
     def combine(self, sfhfile, av = 0, dav = 0, filterlist = None):
-        """Generate a composite spectrum from an SFH and a spectral basis,
-        including reddening.
+        """
+        Generate a composite spectrum from an SFH and a spectral
+        basis, including reddening.
 
         INPUTS
         ---------
@@ -69,24 +76,30 @@ class Combiner(object):
             string giving the name (and path) to the file containing the sfh
             
         :param av:
-            Scalar or sequence giving the 'foreground' reddening affecting all stars
-            of a given time bin equally.  If a sequence, should be of same length as
-            the number of sfh bins
+            Scalar or sequence giving the 'foreground' reddening
+            affecting all stars of a given time bin equally.  If a
+            sequence, should be of same length as the number of sfh
+            bins
             
         :param dav:
-            scalar or sequence giving the maximum reddening of a linear distribution
-            of reddening for a given time bin, from av to dav.  If a sequence, should
-            be of same length as the number of sfh bins
+            scalar or sequence giving the maximum reddening of a
+            linear distribution of reddening for a given time bin,
+            from av to dav.  If a sequence, should be of same length
+            as the number of sfh bins
             
         :param filterlist:
-            sequence of 'sedpy' filter objects for which to return the broadband photometry
+            sequence of 'sedpy' filter objects for which to return the
+            broadband photometry
             
         :returns spectrum:
-            The composite spectrum, reddened. Units are erg/s/cm^2/AA at a distance of 10pc
+            The composite spectrum, reddened. Units are erg/s/cm^2/AA
+            at a distance of 10pc.
+            
         :returns mstar:
-            the current stellar mass, in M_sun
+            the current stellar mass, in M_sun.
+            
         :returns broadband:
-            A numpy array of broadband AB absolute magnitudes
+            A numpy array of broadband AB absolute magnitudes.
         """
         sfh = utils.load_angst_sfh(sfhfile)
         # Adjust most recent bin sfr to have same total mass for t = 0 to t2
@@ -98,7 +111,8 @@ class Combiner(object):
             total_spec = flux.sum(axis = 1) #and sum over age bins
         else:
             nsplit = 9. * np.any(dav > 0) + 1
-            total_spec = self.redden(sfh, np.asarray(av), np.asarray(dav), nsplit = nsplit)        
+            total_spec = self.redden(sfh, np.asarray(av), np.asarray(dav),
+                                     nsplit = nsplit)        
         mtot = (sfh['sfr'] * dt).sum()
         mstar = (sfh['sfr'] * self.mstar).sum()
         if filterlist is not None:
@@ -110,22 +124,24 @@ class Combiner(object):
 
     def redden(self, sfh, av, dav, nsplit = 10.):
         """
-        Redden the spectral bases in 'self.spec' and combine them to produce an
-        integrated spectrum.  av and dav may be vectors with same length as the
-        number of SFR bins (i.e. for age dependent attenuation)
+        Redden the spectral bases in 'self.spec' and combine them to
+        produce an integrated spectrum.  av and dav may be vectors
+        with same length as the number of SFR bins (i.e. for age
+        dependent attenuation)
 
         :param av:
-            The foreground attenuation affecting all stars of all ages equally,
-            scalar or sequence
+            The foreground attenuation affecting all stars of all ages
+            equally, scalar or sequence
             
         :param dav:
             The differential reddening, defined such that the distribution of
             reddening is uniform from av to dav, scalar or sequence.
             
         :param nsplit: (default: 10)
-            The number of peices into which to split the spectrum when approximating
-            the uniform distribution up to dav.  use larger numbers for higher accuracy
-            (especially when dav is large)
+            The number of pieces into which to split the spectrum when
+            approximating the uniform distribution up to dav.  use
+            larger numbers for higher accuracy (especially when dav is
+            large)
 
         :returns total_spec_red:
             The reddened spectrum
@@ -135,7 +151,8 @@ class Combiner(object):
         av = np.atleast_1d(av)
         dav = np.atleast_1d(dav) 
         #uniform distribution from Av to Av + dAv
-        avdist = av[None, :] + dav[None,:] * ((np.arange(nsplit) + 0.5)/nsplit)[:,None]
+        avdist = ( av[None, :] + dav[None,:] *
+                   ((np.arange(nsplit) + 0.5)/nsplit)[:,None] )
         ee = (np.exp(-self.tau_curve[None,None,:] * avdist[:,:,None]))
         li0_red = (ee * lisplit[None,:,:]).sum(axis = 0)
         total_spec_red = (li0_red.T * sfh['sfr']).sum(axis = 1)
@@ -149,64 +166,77 @@ class Combiner(object):
         #total_spec_red_v2 = (li0_red.T * sfh['sfr']).sum(axis = 1)
 
     def sexAmodel(self, avmax, sfile):
-        """Calculate the distribution of max Av as a function of age for the Dolphin 2002
-        differential attenuation model.
+        """
+        Calculate the distribution of max Av as a function of age for
+        the Dolphin 2002 differential attenuation model.
 
         :param avmax:
             The maximum A_v at t_lookback = 0
+            
         :param sfile:
-            String piving the name and path to the SFH file defining the time binning
+            String giving the name and path to the SFH file defining
+            the time binning.
 
         :returns dav:
-            A sequence of length the number of time bins, giving dA_v max in each time bin
+            A sequence of length the number of time bins, giving dA_v
+            max in each time bin
         """
         sfh = utils.load_angst_sfh(sfile)
-        dav = np.clip(((10**sfh['t2']-4e7) * (-avmax) / 0.6e8 + avmax), 0, avmax)
+        dav = np.clip(((10**sfh['t2']-4e7) *
+                       (-avmax) / 0.6e8 + avmax), 0, avmax)
         return dav
 
 
 def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lookback = [0],
                    narr = 500, t0 = 0.0005 * 1e9, clobber = False):
-    """Method to produce a spectral basis file for a given set of time bins.
-    Uses subprocess to call autosps from FSPS after generating a top hat user
-    SFH file with SFR = 1 Msun/yr, which is a pretty hacky workaround.  Requires
-    FSPS to be installed and $SPS_HOME to point to the correct fsps directory.
+    """
+    Method to produce a spectral basis file for a given set of time
+    bins.  Uses subprocess to call autosps from FSPS after generating
+    a top hat user SFH file with SFR = 1 Msun/yr, which is a pretty
+    hacky workaround.  Requires FSPS to be installed and $SPS_HOME to
+    point to the correct fsps directory.
 
     :param sfh_template:
-        String giving the name and path to the SFH file defining the time binning
+        String giving the name and path to the SFH file defining the
+        time binning.
         
     :param zmet: (default: 1.0)
-        Metallicity in units of solar (linear)
+        Metallicity in units of solar (linear).
         
     :param imf_type: (default: 0)
-        The IMF to use.  Defaults to Salpeter. see FSPS manual for details.
+        The IMF to use.  Defaults to Salpeter. see FSPS manual for
+        details.
         
     :param narr:
-        Number of linear time points to use for defining each bin in the sfh.dat
-        user file.
+        Number of linear time points to use for defining each bin in
+        the sfh.dat user file.
         
     :param t0:
-        Extra time padding to add to the beginning of each bin, to please FSPS.
+        Extra time padding to add to the beginning of each bin, to
+        please FSPS.
         
     :param outroot:
-        Output file name root.  Metallicity and IMF info will be automatically
-        appended to this.
+        Output file name root.  Metallicity and IMF info will be
+        automatically appended to this.
         
     :param t_lookback:
-        lookback time (in yrs) at which to calculate the spectrum of each bin of SF.
-        If it's before the beginning of a given bin then the spectrum and mass for
-        that bin are set to zero.
+        Lookback time (in yrs) at which to calculate the spectrum of
+        each bin of SF.  If it's before the beginning of a given bin
+        then the spectrum and mass for that bin are set to zero.
 
     :param clobber: (deafult False)
-        If False, then if the filename already exists do not recompute the basis and
-        return the filename.  Otherwise, force recomputation of the basis.
+        If False, then if the filename already exists do not recompute
+        the basis and return the filename.  Otherwise, force
+        recomputation of the basis.
         
     :returns outname:
-        A string (array) giving the path and filenames of the produced basis file(s).  The basis file
-        consists of  an array of shape [NBIN+1, NWAVE+1] where the extra indices are to
-        store the wavelength vector and the stellar mass vector.  Otherwise the data consists
-        of the spectrum of each bin (top-hat SFH) at time t_lookback, in units of
-        erg/s/cm**2/AA per M_sun/yr at 10pc distance.
+        A string (array) giving the path and filenames of the produced
+        basis file(s).  The basis file consists of  an array of shape
+        [NBIN+1, NWAVE+1] where the extra indices are to store the
+        wavelength vector and the stellar mass vector.  Otherwise the
+        data consists of the spectrum of each bin (top-hat SFH) at
+        time t_lookback, in units of erg/s/cm**2/AA per M_sun/yr at
+        10pc distance.
     """
 
     # Set up the output filename(s) and return if file(s) already exists and not clobber
@@ -283,27 +313,30 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
     return outnames
 
 def get_fsps_spectrum(time, sfr, zmet, imf_type, leadin):
-    """ Use the autosps.exe program of FSPS to generate the spectral
-    evolution for an arbitrary SFH, and return properties of the stellar
-    population so generated.  This is a hacky interface to FSPS, but allows
-    for arbitrary SFH and metallicity evolution.
+    """
+    Use the autosps.exe program of FSPS to generate the spectral
+    evolution for an arbitrary SFH, and return properties of the
+    stellar population so generated.  This is a hacky interface to
+    FSPS, but allows for arbitrary SFH and metallicity evolution.
 
     :param time:
-       time axis (in yrs) for the SFH definition. This should *not*
+       Time axis (in yrs) for the SFH definition. This should *not*
        start at zero. NDARRAY
 
     :param sfr:
         SFR (M_Sun/yr) corresponding to the time array.  NDARRAY
         
     :param zmet: (default: 1.0)
-        Metallicity in units of solar (linear)
+        Metallicity in units of solar (linear).
         
     :param imf_type: (default: 0)
-        The IMF to use.  Defaults to Salpeter. see FSPS manual for details.
+        The IMF to use.  Defaults to Salpeter. see FSPS manual for
+        details.
 
     :param leadin:
-        time step to use for the padding of the time array.  4 extra time steps
-        of size leadin and SFR = 0 will be prepended to the SFH
+        Time step to use for the padding of the time array.  4 extra
+        time steps of size leadin and SFR = 0 will be prepended to the
+        SFH.
 
     :returns sps:
         see sfhutils.read_fsps() for a description of the output.
