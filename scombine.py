@@ -188,7 +188,7 @@ class Combiner(object):
 
 
 def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lookback = [0],
-                   narr = 500, t0 = 0.0005 * 1e9, clobber = False):
+                   narr = 2000, t0 = 0.0005 * 1e9, clobber = False):
     """
     Method to produce a spectral basis file for a given set of time
     bins.  Uses subprocess to call autosps from FSPS after generating
@@ -207,9 +207,10 @@ def generate_basis(sfh_template, zmet = 1.0, imf_type = 0, outroot = 'L0',  t_lo
         The IMF to use.  Defaults to Salpeter. see FSPS manual for
         details.
         
-    :param narr:
+    :param narr:  (default: 2000)
         Number of linear time points to use for defining each bin in
-        the sfh.dat user file.
+        the sfh.dat user file. Increase this number if you have very
+        narrow (e.g. less than ~1 Myr)
         
     :param t0:
         Extra time padding to add to the beginning of each bin, to
