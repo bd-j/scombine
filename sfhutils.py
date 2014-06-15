@@ -8,12 +8,15 @@ magsphere = 4.*np.pi*100*pc2cm**2
 skiprows = 0 #number of extra rows at the top of the SFH files
 
 def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False):
-    """Read a `match`-produced, zcombined SFH file into a numpy structured array.
+    """
+    Read a `match`-produced, zcombined SFH file into a numpy
+    structured array.
 
     :param name:
-        string giving the name (and optionally the path) of the SFH file
+        String giving the name (and optionally the path) of the SFH
+        file.
     :param skiprows:
-        number of header rows in the SFH file to skip
+        Number of header rows in the SFH file to skip.
     """
     #hack to calculate skiprows on the fly
     tmp = open(name, 'rb')
@@ -29,6 +32,46 @@ def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False):
         pass
     return data
 
+def load_phat_sfh(name, zlegend):
+    """
+    """
+    zedges = np.log10(zlegend/0.019)
+    zedges = zedges[0:-1]+ np.diff(zedges)/2.
+    zedges = np.array([-np.inf] + zedges.tolist() + [np.inf])
+    ty = '<f8'
+    dt = np.dtype([('t1', ty), ('t2',ty), ('dmod',ty), ('sfr',ty), ('met', ty), ('mformed',ty)])
+
+    alldat = []
+    sfhs = []
+
+    # Read in file, discarding header and footer
+    #  and convert to a big array
+    f = open(name,'r')
+    for i, line in enumerate(f):
+        dat = line.split()
+        if len(dat) < 5:
+            continue
+        alldat += [[float(d) for d in dat]]
+    alldat = np.array(alldat)
+    zbin = np.digitize(alldat[:,4], zedges)
+
+    for iz in range(len(zlegend)):
+        zinds = (zbin == iz)
+        thismet = alldat[zinds,:]
+        t1s, t2s = np.unique(thismet[:,0]), np.unique(thismet[:,1])
+        nt = len(t1s)
+        sfh = np.zeros(nt, dtype = dt)
+        sfh['t1'], sfh['t2'] = t1s, t2s
+        sfh['met'], sfh['dmod'] =  np.log10(zlegend[iz]/0.019), alldat[0,-1]
+        
+        # For each time bin, accumulate the sfr
+        #  of all entries in this metallicity bin 
+        for it in range(nt):
+            sfr  = thismet[thismet[:,0] == t1s[it], 2].sum()
+            sfh['sfr'][it] = sfr
+        sfhs += [sfh]
+    return sfhs
+            
 def read_fsps(filename):
     """Read a .spec file produced by FSPS and return a number of arrays
     giving quantities of the stellar population.  These are:
