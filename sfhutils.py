@@ -37,7 +37,7 @@ def load_phat_sfh(name, zlegend):
     """
     zedges = np.log10(zlegend/0.019)
     zedges = zedges[0:-1]+ np.diff(zedges)/2.
-    zedges = np.array([-np.inf] + zedges.tolist() + [np.inf])
+    #zedges = np.array([-np.inf] + zedges.tolist() + [np.inf])
     ty = '<f8'
     dt = np.dtype([('t1', ty), ('t2',ty), ('dmod',ty), ('sfr',ty), ('met', ty), ('mformed',ty)])
 

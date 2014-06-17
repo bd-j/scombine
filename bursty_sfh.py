@@ -1,9 +1,7 @@
 import sys
 import numpy as np
 import matplotlib.pyplot as pl
-
 from astropy import constants
-import fsps
 
 from sfhutils import weights_1DLinear, load_angst_sfh
 from sedpy import attenuation
@@ -135,13 +133,21 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     """
     
     dt = lt[1] - lt[0]
-    sps.params['sfh'] = 0 #set to SSPs
-    #get *all* the ssps
-    wave, spec = sps.get_spectrum(peraa = True, tage = 0)
-    #redden the ssps
+    sps.params['sfh'] = 0 #make sure SSPs
+    # get *all* the ssps
+    #wave, spec = sps.get_spectrum(peraa = True, tage = 0) #slower, stabler way
+    #ssp_ages = 10**sps.log_age
+    # slightly more dangerous fast way, requiring the up-to-date numpy
+    zmet = sps.params['zmet']-1
+    spec, mass, _ = sps.all_ssp_spec(peraa =True, update = True)
+    spec = spec[:,:,zmet].T
+    wave = sps.wavelengths
+    ssp_ages = 10**sps.ssp_ages #in yrs
+    
+    # redden the SSP spectra
     spec, lir = redden(wave, spec, av = av, dav = dav,
                        dust_curve = dust_curve, nsplit =nsplit)
-    ssp_ages = 10**sps.log_age #in yrs
+    
     target_lt = np.atleast_1d(lookback_time)
     #set up output
     int_spec = np.zeros( [ len(target_lt), len(wave) ] )
@@ -354,6 +360,7 @@ def examples(filename = '/Users/bjohnson/Projects/angst/sfhs/angst_sfhs/gr8.lowr
     """
     A quick test and demonstration of the algorithms.
     """
+    import fsps
     sps = fsps.StellarPopulation()
 
     f_burst, fwhm_burst, contrast = 0.5, 0.05 * 1e9, 5
