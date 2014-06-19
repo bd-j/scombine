@@ -1,6 +1,8 @@
 import glob
 import numpy as np
+from scipy.interpolate import interp1d
 import matplotlib.pyplot as pl
+from hzutils import *
 
 loglsol = 3.839e33
 pc2cm = 3.086e18
@@ -34,6 +36,15 @@ def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False):
 
 def load_phat_sfh(name, zlegend):
     """
+    Read a `match`-produced SFH file that was not zcombined into a
+    numpy structured array.
+
+    :param name:
+        String giving the name (and optionally the path) of the SFH
+        file.
+        
+    :param skiprows:
+        Number of header rows in the SFH file to skip.
     """
     zedges = np.log10(zlegend/0.019)
     zedges = zedges[0:-1]+ np.diff(zedges)/2.
@@ -71,27 +82,80 @@ def load_phat_sfh(name, zlegend):
             sfh['sfr'][it] = sfr
         sfhs += [sfh]
     return sfhs
-            
+
+def read_lfs(filename):
+
+    #luminosity_functions = {}
+    age, bins, lfs = [], [], []
+    f = open(filename, "r")
+    for i,line in enumerate(f):
+        dat = [ float(d) for d in line.split() ]
+        if (i % 3) == 0:
+            age += [ dat[0]]
+        elif (i % 3) == 1:
+            bins += [dat]
+        elif (i % 3) == 2:
+            lfs += [dat]
+    f.close()
+    
+    age = np.array(age)
+    minage, maxage = np.min(age)-0.05, np.max(age)+0.10
+    minl, maxl = np.min(bins)[0], np.max(bins)[0]+0.01
+    allages = np.arange(minage, maxage, 0.05)
+    mags = np.arange(minl, maxl, 0.01)
+    print(minl, maxl)
+    
+    lf = np.zeros([ len(allages), len(mags)])
+    for i, t in enumerate(allages):
+        inds = np.isclose(t,age)
+        if inds.sum() == 0:
+            continue
+        ind = np.where(inds)[0][0]
+        x = np.array(bins[ind] + [np.max(mags)])
+        y = np.log10(lfs[ind] +[np.max(lfs[ind])])
+        
+        lf[i, :] = 10**interp1d(np.sort(x), np.sort(y), fill_value = -np.inf, bounds_error = False)(mags)
+
+    
+    luminosity_func ={}
+    luminosity_func['ssp_ages'] = allages
+    luminosity_func['lf'] = lf
+    luminosity_func['bins'] = mags
+    luminosity_func['orig'] = [bins, lfs]
+
+    return luminosity_func
+
 def read_fsps(filename):
-    """Read a .spec file produced by FSPS and return a number of arrays
-    giving quantities of the stellar population.  These are:
-    [age (in Gyr), log(Mstar), log(Lbol), log(SFR), spectrum, wavelength, header]
+    """
+    Read a .spec file produced by FSPS and return a number of arrays
+    giving quantities of the stellar population.  These are: [age (in
+    Gyr), log(Mstar), log(Lbol), log(SFR), spectrum, wavelength,
+    header]
 
     :param filename:
-        The file name of the FSPS output .spec file, including path
+        The file name of the FSPS output .spec file, including path.
+        
     :returns age:
-        The age of the stellar population (in Gyr).  1D array of shape (Nage,)
+        The age of the stellar population (in Gyr).  1D array of shape
+        (Nage,)
+        
     :returns mstar:
-        The log of the stellar mass (in solar units) at `age'.  1D array
+        The log of the stellar mass (in solar units) at `age'.  1D
+        array.
+        
     :returns lbol:
         The log of the bolometric luminosity at `age'.  1D array
+        
     :returns sfr:
         The log of the SFR (M_sun/yr) at `age'.  1D array
+        
     :returns spectrum:
         The spectrum of the stellar population at `age'.  (L_sun/Hz),
         2D array of shape (Nage, Nwave)
+        
     :returns wavelngth:
-        The wavelength vector (AA).  1D array
+        The wavelength vector (AA).  1D array.
+        
     :returns header:
         String array of header information in the .spec file
     """
@@ -115,10 +179,13 @@ def read_fsps(filename):
     return np.array(age), np.array(logmass), np.array(loglbol), np.array(logsfr), np.array(spec), np.array(wave), header
 
 def weights_1DLinear(model_points, target_points, extrapolate = False):
-    """ The interpolation weights are determined from 1D linear interpolation.
+    """
+    The interpolation weights are determined from 1D linear
+    interpolation.
     
     :param model_points: ndarray, shape(nmod)
-        The parameter coordinate of the available models.  assumed to be sorted ascending
+        The parameter coordinate of the available models.  assumed to
+        be sorted ascending
                 
     :param target_points: ndarray, shape(ntarg)
         The coordinate to which you wish to interpolate
@@ -127,7 +194,7 @@ def weights_1DLinear(model_points, target_points, extrapolate = False):
          The model indices of the interpolates
              
     :returns weights: narray, shape (ntarg,2)
-         The weights of each model given by ind in the interpolates
+         The weights of each model given by ind in the interpolates.
     """
 
     #well this is ugly.

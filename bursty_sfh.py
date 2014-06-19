@@ -168,6 +168,60 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     else:
         return wave, int_spec, aw
 
+
+def bursty_lf(lookback_time, lt, sfr, sps_lf):
+    """
+    Obtain the luminosity function of stars for an arbitrary complex
+    SFH at a given lookback time.  The SFH is provided in terms of SFR
+    vs t_lookback. Note that this in in contrast to the normal
+    specification in terms of time since the big bang.
+
+    :param lookback_time: scalar or ndarray, shape (ntarg)
+        The lookback time(s) at which to obtain the spectrum. In yrs.
+        
+    :param lt: ndarray, shape (ntime)
+        The lookback time sequence of the provided SFH.  Assumed to
+        have have equal linear time intervals.
+        
+    :param sfr: ndarray, shape (ntime)
+        The SFR corresponding to each element of lt, in M_sun/yr.
+        
+    :param sps_lf:
+        Luminosity function information, as a dictionary.  The keys of
+        the dictionary are.
+
+    :returns bins:
+        The bins used to define the LF
+        
+    :returns int_lf: ndarray, shape(ntarg, nbin)
+        The integrated LF at lookback_time, in L_sun/AA
+        
+    :returns aw: ndarray, shape(ntarg, nage)
+        The total weights of each LF for each requested
+        lookback_time.  Useful for debugging.
+        
+    """
+
+    dt = lt[1] - lt[0]
+    bins, lf, ssp_ages = sps_lf['bins'], sps_lf['lf'], 10**sps_lf['ssp_ages']
+        
+    target_lt = np.atleast_1d(lookback_time)
+    #set up output
+    int_lf = np.zeros( [ len(target_lt), len(bins) ] )
+    aw = np.zeros( [ len(target_lt), len(ssp_ages) ] )
+
+    for i,tl in enumerate(target_lt):
+        valid = (lt >= tl) #only consider time points in the past of this lookback time.
+        inds, weights = weights_1DLinear(np.log(ssp_ages), np.log(lt[valid] - tl))
+        #aggregate the weights for each ssp time index, after accounting for SFR
+        agg_weights = np.bincount( inds.flatten(),
+                                   weights = (weights * sfr[valid,None]).flatten(),
+                                   minlength = len(ssp_ages) ) * dt
+        int_lf[i,:] = (lf * agg_weights[:,None]).sum(axis = 0)
+        aw[i,:] = agg_weights
+
+    return bins, int_lf, aw
+
 def gauss(x, mu, A, sigma):
     """
     Project the sum of a sequence of gaussians onto the x vector,
