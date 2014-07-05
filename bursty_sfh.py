@@ -188,7 +188,7 @@ def bursty_lf(lookback_time, lt, sfr, sps_lf):
         
     :param sps_lf:
         Luminosity function information, as a dictionary.  The keys of
-        the dictionary are.
+        the dictionary are:
 
     :returns bins:
         The bins used to define the LF

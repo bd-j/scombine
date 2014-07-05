@@ -74,7 +74,6 @@ def smc_regions(filename = smcfile):
     #wow.  really?  could this *be* harder to parse?
     #why so differnt than lmc?
     regions ={'header':[]}
-
     f = open(filename, 'rb')
     for i, line in enumerate(f):
         line = line.strip()
@@ -124,5 +123,5 @@ def process_smc_sfh(dat):
         data['sfr'] = s[:, usecol[zindex]] * 1e-6
         data['dmod'] = 18.50
         all_sfhs += [data]
-    loc = "( {0:02.0f}h {1:02.0f}m {2:02.0f}d {2:02.0f}m )".format(*dat[0][0:4])
+    loc = "( {0:02.0f}h {1:02.0f}m {2:02.0f}d {3:02.0f}m )".format(*dat[0][0:4])
     return all_sfhs, zlegend, loc
