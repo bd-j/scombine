@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as pl
 from astropy import constants
+from scipy import interpolate
 
 from sfhutils import weights_1DLinear, load_angst_sfh
 from sedpy import attenuation
@@ -12,8 +13,8 @@ lightspeed = 2.998e18 #AA/s
 #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
-def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
-              sfh = None, bin_res = 10.):
+def burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
+              sfh=None, bin_res=10.):
     """
     Given a binned SFH as a numpy structured array, and burst
     parameters, generate a realization of the SFH at high temporal
@@ -80,10 +81,44 @@ def burst_sfh(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
     
     return times, sfr, f_burst_actual
 
+def smooth_sfh(sfh=None, bin_res=10., **kwargs):
+    """Method to produce a smooth SFH from a given step-wise SFH, under the
+    constraint that the  total integrated mass at the end of each 'step' is
+    preserved.  Uses a cubic spline with a monotonicity constraint to obtain
+    M_tot(t) which is then differentiated to produce the SFH.
+
+    :param sfh:
+        A stepwise SFH in the format produced by `load_angst_sfh()`,
+        but with the time fields converted to linear time. A structured
+        array.
+       
+    :param bin_res: default 10
+        Factor by which to increase the time resolution of the output
+        grid, relative to the shortest bin width in the supplied SFH.
+
+    :returns times:  ndarray of shape (nt)
+        The output linear, regular temporal grid of lookback times.
+
+    :returns sfr:
+        The SFR at `times`.
+    """
+    mtot = ((sfh['t2'] - sfh['t1']) * sfh['sfr'] ).sum()
+    #flip time axis to be time since earliest point in SFH
+    # instead of lookback time
+    tmax = sfh['t2'].max()
+    tt = tmax - sfh['t1'] 
+    #tt[0] = sfh[-1]['t2']
+
+    monospline = interpolate.PchipInterpolator(np.concatenate([[0],tt[::-1]]),
+                                               mtot * np.concatenate([[0],sfh['mformed'][::-1]]))
+    
+    dt = (sfh['t2'] - sfh['t1']).min()/(1.0 * bin_res)
+    times = tmax - np.arange(np.round(sfh['t2'].max()/dt)) * dt
+    return tmax - times, monospline.derivative(der=1)(times)
 
 def bursty_sps(lookback_time, lt, sfr, sps,
-               av = None, dav = None, nsplit = 9,
-               dust_curve = attenuation.cardelli):
+               av=None, dav=None, nsplit=9,
+               dust_curve=attenuation.cardelli):
     """
     Obtain the spectrum of a stellar poluation with arbitrary complex
     SFH at a given lookback time.  The SFH is provided in terms of SFR
@@ -137,7 +172,7 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     # get *all* the ssps
     #wave, spec = sps.get_spectrum(peraa = True, tage = 0) #slower, stabler way
     #ssp_ages = 10**sps.log_age
-    # slightly more dangerous fast way, requiring the up-to-date numpy
+    # slightly more dangerous fast way, requiring the up-to-date python-fsps
     zmet = sps.params['zmet']-1
     spec, mass, _ = sps.all_ssp_spec(peraa =True, update = True)
     spec = spec[:,:,zmet].T
@@ -250,8 +285,8 @@ def gauss(x, mu, A, sigma):
     return val.sum(axis = -1)
 
 
-def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
-                       bin_width = 1.0, bin_sfr = 1e9):
+def convert_burst_pars(fwhm_burst = 0.05, f_burst=0.5, contrast=5,
+                       bin_width=1.0, bin_sfr=1e9):
 
     """
     Perform the conversion from a burst fraction, width, and
@@ -331,8 +366,8 @@ def convert_burst_pars(fwhm_burst = 0.05, f_burst = 0.5, contrast = 5,
 #    spec_red = spec * alambda
 #    return spec_red, None
         
-def redden(wave, spec, av = None, dav = None, nsplit = 9,
-           dust_curve = None, wlo = 1216., whi = 2e4, **kwargs):
+def redden(wave, spec, av=None, dav=None, nsplit=9,
+           dust_curve=None, wlo=1216., whi=2e4, **kwargs):
     
     """
     Redden the spectral components.  The attenuation of a given
