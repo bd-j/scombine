@@ -84,7 +84,24 @@ def load_phat_sfh(name, zlegend):
     return sfhs
 
 def read_lfs(filename):
+    """
+    Read a Villaume/FSPS produced cumulative LF file, interpolate LFs
+    at each age to a common magnitude grid, and return a dictionary
+    containing the interpolated CLFs and ancillary information.
 
+    :param filename:
+        The filename (including path) of the Villaume CLF file
+
+    :returns luminosity_func:
+        A dictionary with the following key-value pairs:
+        ssp_ages: Log of the age for each CLF, ndarray of shape (nage,)
+        lf:       The interpolated CLFs, ndarray of shape (nage, nmag)
+        bins:     Magnitude grid for the interpolated CLFs, ndarray of
+                  shape (nmag,)
+        orig:     2-element list contining the original magnitude grids
+                  and CLFs as lists.
+        
+    """
     #luminosity_functions = {}
     age, bins, lfs = [], [], []
     f = open(filename, "r")

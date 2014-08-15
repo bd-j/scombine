@@ -223,7 +223,7 @@ def bursty_lf(lookback_time, lt, sfr, sps_lf):
         
     :param sps_lf:
         Luminosity function information, as a dictionary.  The keys of
-        the dictionary are:
+        the dictionary are 'bins', 'lf' and 'ssp_ages'
 
     :returns bins:
         The bins used to define the LF
@@ -241,7 +241,7 @@ def bursty_lf(lookback_time, lt, sfr, sps_lf):
     bins, lf, ssp_ages = sps_lf['bins'], sps_lf['lf'], 10**sps_lf['ssp_ages']
         
     target_lt = np.atleast_1d(lookback_time)
-    #set up output
+    #set-up output
     int_lf = np.zeros( [ len(target_lt), len(bins) ] )
     aw = np.zeros( [ len(target_lt), len(ssp_ages) ] )
 

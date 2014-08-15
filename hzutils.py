@@ -78,7 +78,7 @@ def smc_regions(filename = smcfile):
     for i, line in enumerate(f):
         line = line.strip()
         if i < 26:
-            regions['header'] += line
+            regions['header'] += [line]
         else:
             cols = line.split()
             reg = cols[0]
@@ -107,7 +107,7 @@ def process_smc_sfh(dat):
     """
     all_sfhs = []
     zlegend = np.array([0.001, 0.004, 0.008])
-    usecol = [13,10,7]
+    usecol = [12,9,6]
     
     s = np.array(dat)
     inds = np.argsort(s[:,4])
