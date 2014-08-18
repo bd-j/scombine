@@ -10,8 +10,8 @@
 #  input to scombine methods.
 
 import numpy as np
-lmcfile = '/Users/bjohnson/Projects/mcmcmc/sfhs/lmc_sfh.dat'
-smcfile = '/Users/bjohnson/Projects/mcmcmc/sfhs/smc_sfh.dat'
+lmcfile = '/Users/bjohnson/Projects/magellanic/sfhs/sfh_data/lmc_sfh.dat'
+smcfile = '/Users/bjohnson/Projects/magellanic/sfhs/sfh_data/smc_sfh.dat'
 
 def lmc_regions(filename = lmcfile):
 
