@@ -2,7 +2,6 @@ import glob
 import numpy as np
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as pl
-from hzutils import *
 
 loglsol = 3.839e33
 pc2cm = 3.086e18
