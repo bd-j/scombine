@@ -33,7 +33,10 @@ def sps_varimf(imf0=2.7, var=0.7, dalpha=0.05, verbose=False):
         numbers are slower bu more accurate.
 
     returns blob:
-        A list of numpy objects containing data used to make the plot.  
+        A list of numpy arrays containing data used to make the
+        plot. The order is the total integrated spectrum, imf_slopes,
+        weights, full spectral array, stellar mass (current, including
+        remnants).
         
     """
     sps.params['sfh'] = 1 #five parameter sfh
@@ -54,7 +57,7 @@ def sps_varimf(imf0=2.7, var=0.7, dalpha=0.05, verbose=False):
     sumspec = (spec * (weights)[None, :]).sum(-1) * dalpha
     if verbose: print(norm)
 
-    return [imfs, weights, spec, mass, sumspec]
+    return [sumspec, imfs, weights, spec, mass]
         
 def plot_varimf(sumspec, spec, imfs, df_imf_slopes = [2.7, 2.35])
     """
@@ -62,21 +65,37 @@ def plot_varimf(sumspec, spec, imfs, df_imf_slopes = [2.7, 2.35])
     integrated spectrum from \delta-function imf slopes.
 
     :param sumspec:
-        The integrated spectrum from the 
+        The integrated spectrum for a variable imf, ndarray of shape
+        (nwave,)
+        
+    :param spec:
+        The spectrum array containing the spectra of 1 M_sun (formed
+        stellar mass) with different delta function imfs.  ndarray of
+        shape (nwave, nimf)
+        
+    :param imfs:
+        The upper imf slopes corresponding to spec, ndarray of shape
+        (nimf,)
+
+    :param df_imf_slopes:
+        The desired imfs for for which you want to plot spectral
+        ratios.  Iterable.
+        
     :returns fig:
         matplotlib figure object containing a plot of  both the integrated
         spectrum for a delta function at imf0 and the integrated
         spectrum for an imf with delta function alpha=2.3
 
     :returns ax:
-        The matplotlib axis object corresponding to the subplot of the above figure.
+        The matplotlib axis object corresponding to the subplot of the
+        above figure.
     """
 
     wave = sps.wavelengths
     fig, ax = pl.subplots(1,1)
     for alpha in df_imf_slopes:
         ind = np.argmin(np.abs(imfs - alpha))
-        label = r'$L_\lambda(\alpha=vimf)/L_\lambda(\alpha={0:4.2f}) \, \times \, C_1$'.format(alpha)
+        label = r'$L_\lambda(\alpha=vimf)/L_\lambda(\alpha={0:4.2f}) \, \times \, C_1$'.format(imfs[ind])
         ax.plot(wave, sumspec/spec[:,ind], label = label)
     ax.set_xlim(1e2,1e4)
     ax.set_ylim(0.5, 2.5)
@@ -87,5 +106,5 @@ def plot_varimf(sumspec, spec, imfs, df_imf_slopes = [2.7, 2.35])
 if __name__ == '__main__':
     imf0, var = 2.7, 0.7
     blob = sps_varimf(imf0=imf0, var=var)
-    fig, ax = plot_varimf(blob[-1], blob[2], df_imf_slops=[imf0, 2.35])
+    fig, ax = plot_varimf(blob[0], blob[3], df_imf_slops=[imf0, 2.35])
     fig.show()
