@@ -32,15 +32,6 @@ def sps_varimf(imf0=2.7, var=0.7, dalpha=0.05, verbose=False):
         The resolution in \alpha for the numeric integration.  smaller
         numbers are slower bu more accurate.
 
-    :returns fig:
-        matplotlib figure object containing a plot of the integrated
-        spectrum from the variable imf divided by both the integrated
-        spectrum for a delta function at imf0 and the integrated
-        spectrum for an imf with delta function alpha=2.3
-
-    :returns ax:
-        The matplotlib axis object corresponding to the subplot of the above figure.
-
     returns blob:
         A list of numpy objects containing data used to make the plot.  
         
@@ -62,19 +53,39 @@ def sps_varimf(imf0=2.7, var=0.7, dalpha=0.05, verbose=False):
     norm = (weights*dalpha).sum()
     sumspec = (spec * (weights)[None, :]).sum(-1) * dalpha
     if verbose: print(norm)
-    
-    ind = np.argmin(np.abs(imfs-imf0))
-    ind_salp = np.argmin(np.abs(imfs-2.3))
-    
+
+    return [imfs, weights, spec, mass, sumspec]
+        
+def plot_varimf(sumspec, spec, imfs, df_imf_slopes = [2.7, 2.35])
+    """
+    Plot the integrated spectrum from the variable imf divided by the
+    integrated spectrum from \delta-function imf slopes.
+
+    :param sumspec:
+        The integrated spectrum from the 
+    :returns fig:
+        matplotlib figure object containing a plot of  both the integrated
+        spectrum for a delta function at imf0 and the integrated
+        spectrum for an imf with delta function alpha=2.3
+
+    :returns ax:
+        The matplotlib axis object corresponding to the subplot of the above figure.
+    """
+
+    wave = sps.wavelengths
     fig, ax = pl.subplots(1,1)
-    ax.plot(wave, sumspec/spec[:,ind], label = r'$L_\lambda(\alpha=vimf)/L_\lambda(\alpha=2.7) \, \times \, C_1$')
-    ax.plot(wave, sumspec/spec[:,ind_salp], label = r'$L_{{\lambda}}(\alpha=vimf)/L_\lambda(\alpha=2.3) \, \times \, C_2$')
+    for alpha in df_imf_slopes:
+        ind = np.argmin(np.abs(imfs - alpha))
+        label = r'$L_\lambda(\alpha=vimf)/L_\lambda(\alpha={0:4.2f}) \, \times \, C_1$'.format(alpha)
+        ax.plot(wave, sumspec/spec[:,ind], label = label)
     ax.set_xlim(1e2,1e4)
     ax.set_ylim(0.5, 2.5)
     ax.legend(loc=0)
-    return fig, ax, [imfs,  weights, spec, mass, sumspec]
+    return fig, ax
 
     
 if __name__ == '__main__':
-    fig, ax, blob = sps.varimf()
+    imf0, var = 2.7, 0.7
+    blob = sps_varimf(imf0=imf0, var=var)
+    fig, ax = plot_varimf(blob[-1], blob[2], df_imf_slops=[imf0, 2.35])
     fig.show()
