@@ -5,8 +5,10 @@ import fsps
 sps = fsps.StellarPopulation()
 
 
-def effective_imf(imf0=2.7, var=0.7, dalpha=0.05):
-    
+def effective_imf(masses, imf0=2.7, var=0.7, dalpha=0.05):
+    imfs = np.arange(0.1, 5.4, dalpha)
+    weights = 1./(np.sqrt(var*2.*np.pi)) * np.exp( -(imfs - imf0)**2/(2*var))
+    phi = masses[:,None] ** imfs[None, :]
     
 
 def sps_varimf(imf0=2.7, var=0.7, dalpha=0.05, verbose=False):
