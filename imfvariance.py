@@ -4,16 +4,38 @@ import fsps
 
 sps = fsps.StellarPopulation()
 
-
 def effective_imf(masses, imf0=2.7, var=0.7, dalpha=0.05):
     """
     Work out the effective (slope averaged) imf in the case of
-    variable slope.
+    variable upper slopes.
     """
+    
     imfs = np.arange(0.1, 5.4, dalpha)
     weights = 1./(np.sqrt(var*2.*np.pi)) * np.exp( -(imfs - imf0)**2/(2*var))
-    phi = masses[:,None] ** imfs[None, :]
+    for imf in imfs:
+        phi = kroupa(masses, imf3=imf)
+        
+def kroupa(masses, imf0=0.3, imf1=1.3, imf2=2.3, imf3=2.3,
+           imf_lower_limit=0.08, imf_upper_limit=100):
+    """
+    Implements a Kroupa (2001) IMF, normalized to 1 M_sun
+    """
     
+    alphas = np.array([imf0, imf1, imf2, imf3])
+    lims = [imf_lower_limit, 0.08, 0.5, 1.0, imf_upper_limit]
+    #lims = [0.08, 0.5, 1.0]
+    #alpha_ind = np.digitize(masses, lims)
+    #phi = masses**(-alphas[alpha_ind])
+
+    phi = np.zeros_like(masses)
+    norm = 0.0
+    for i, alpha in enumerate(alphas):
+        this = (masses > lims[i]) & (masses < lims[i+1])
+        phi[this] = masses[this]**(-alpha)
+        ex = (2.0-alpha)
+        norm += (lims[i+1]**ex - lims[i]**ex)/ex
+
+    return phi/norm
 
 def sps_varimf(imf0=2.7, var=0.7, dalpha=0.05, verbose=False):
     """
@@ -37,10 +59,10 @@ def sps_varimf(imf0=2.7, var=0.7, dalpha=0.05, verbose=False):
         plot. The order is the total integrated spectrum, imf_slopes,
         weights, full spectral array, stellar mass (current, including
         remnants).
-        
     """
+    
     sps.params['sfh'] = 1 #five parameter sfh
-    sps.params['const'] = 1 #everything in the constant
+    sps.params['const'] = 1 #everything in the constant SF component
     sps.params['imf_type'] = 2 # Kroupa 3-slope IMF
 
     imfs = np.arange(0.1, 5.4, dalpha)
@@ -101,9 +123,9 @@ def plot_varimf(sumspec, spec, imfs, df_imf_slopes = [2.7, 2.35])
     ax.set_ylim(0.5, 2.5)
     ax.legend(loc=0)
     return fig, ax
-
     
 if __name__ == '__main__':
+    
     imf0, var = 2.7, 0.7
     blob = sps_varimf(imf0=imf0, var=var)
     fig, ax = plot_varimf(blob[0], blob[3], df_imf_slops=[imf0, 2.35])
