@@ -133,19 +133,31 @@ def plot_varimf(sumspec, spec, imfs, df_imf_slopes = [2.7, 2.35]):
 if __name__ == '__main__':
     
     imf0, var = 2.7, 0.7
-    blob = sps_varimf(imf0=imf0, var=var)
-    fig, ax = plot_varimf(blob[0], blob[3], blob[1], df_imf_slopes=[imf0, 2.3])
-    fig.show()
+    #blob = sps_varimf(imf0=imf0, var=var)
+    #fig, ax = plot_varimf(blob[0], blob[3], blob[1], df_imf_slopes=[imf0, 2.3])
+    #fig.show()
 
     fig, ax = pl.subplots(1,1)
     masses = np.arange(0.08,100.,0.001)
-    phi = kroupa(masses, imf3=2.3)
+
+    phik = kroupa(masses, imf3=2.3)
+    ax.plot(masses, phik, label = r'Kroupa (2001)$\,$')
+
+    phi_steep = kroupa(masses, imf3=2.7)
+    ax.plot(masses, phi_steep, label = r'single IMF $\alpha_3=2.7$')
+    
     phi_var = effective_imf(masses, imf0=imf0, var=var, function=kroupa)
-    ax.plot(masses, phi, label = r'Kroupa (2001)')
     ax.plot(masses, phi_var, label = r'Variable IMF ($\mu={0}, \sigma^2={1}$)'.format(imf0,var))
+
+    imf0 = 2.3
+    phi_var = effective_imf(masses, imf0=imf0, var=var, function=kroupa)
+    ax.plot(masses, phi_var, label = r'Variable IMF ($\mu={0}, \sigma^2={1}$)'.format(imf0,var))
+
+    
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel('$m$')
     ax.set_ylabel(r'$N(m)dm$')
     ax.legend(loc=0)
+    ax.set_title(r'$m_{{total}} = 1 M_\odot$, $0.08<m<100$')
     fig.show()
