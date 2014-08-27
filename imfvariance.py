@@ -31,6 +31,16 @@ def kroupa(mass, imf0=0.3, imf1=1.3, imf2=2.3, imf3=2.3,
         norm += (lims[i+1]**ex - lims[i]**ex) * n/ex
     return phi/norm
 
+def salpeter(mass, imf=2.35,
+             imf_lower_limit=0.08, imf_upper_limit=100):
+
+    """
+    Implements Salpeter IMF (or any pure power-law) as a special case
+    of the broken power-law kroupa IMF.
+    """
+    return kroupa(mass, imf0=imf, imf1=imf, imf2=imf, imf3=imf,
+                  imf_lower_limit=imf_lower_limit, imf_upper_limit=imf_upper_limit)
+
 def effective_imf(masses, imf0=2.7, var=0.7, dalpha=0.05, function=kroupa):
     """
     Work out the effective (slope averaged) imf in the case of
