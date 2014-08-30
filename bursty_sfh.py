@@ -1,14 +1,11 @@
 import sys
 import numpy as np
-import matplotlib.pyplot as pl
-from astropy import constants
 from scipy import interpolate
 
-from sfhutils import weights_1DLinear, load_angst_sfh
+from sfhutils import weights_1DLinear
 from sedpy import attenuation
 
-lsun = constants.L_sun.cgs.value
-pc = constants.pc.cgs.value
+lsun, pc = 3.846e33, 3.085677581467192e18
 lightspeed = 2.998e18 #AA/s
 #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
@@ -449,8 +446,10 @@ def examples(filename = '/Users/bjohnson/Projects/angst/sfhs/angst_sfhs/gr8.lowr
     """
     A quick test and demonstration of the algorithms.
     """
+    import matplotlib.pyplot as pl
     import fsps
     sps = fsps.StellarPopulation()
+    from sfhutils import load_angst_sfh
 
     f_burst, fwhm_burst, contrast = 0.5, 0.05 * 1e9, 5
     sfh = load_angst_sfh(filename)

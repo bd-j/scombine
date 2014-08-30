@@ -151,23 +151,28 @@ if __name__ == '__main__':
     masses = np.arange(0.08,100.,0.001)
 
     phik = kroupa(masses, imf3=2.3)
-    ax.plot(masses, phik, label = r'Kroupa (2001)$\,$')
+    ax.plot(masses, phik / phik, color='blue', linewidth=3,
+            label = r'Kroupa (2001)$\,$')
 
     phi_steep = kroupa(masses, imf3=2.7)
-    ax.plot(masses, phi_steep, label = r'single IMF $\alpha_3=2.7$')
+    ax.plot(masses, phi_steep / phik, color='red', linewidth = 3,
+            label = r'single IMF $\alpha_3=2.7$')
     
     phi_var = effective_imf(masses, imf0=imf0, var=var, function=kroupa)
-    ax.plot(masses, phi_var, label = r'Variable IMF ($\mu={0}, \sigma^2={1}$)'.format(imf0,var))
+    ax.plot(masses, phi_var / phik, color='green', linewidth = 3,
+            label = r'Variable IMF ($\mu={0}, \sigma^2={1}$)'.format(imf0,var))
 
     imf0 = 2.3
     phi_var = effective_imf(masses, imf0=imf0, var=var, function=kroupa)
-    ax.plot(masses, phi_var, label = r'Variable IMF ($\mu={0}, \sigma^2={1}$)'.format(imf0,var))
+    ax.plot(masses, phi_var / phik, color='orange', linewidth = 3,
+            label = r'Variable IMF ($\mu={0}, \sigma^2={1}$)'.format(imf0,var))
 
-    
+    ax.set_xlim(0.07, 110)
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel('$m$')
-    ax.set_ylabel(r'$N(m)dm$')
+    ax.set_ylabel(r'$N(m)dm/N_K(m)dm$')
     ax.legend(loc=0)
-    ax.set_title(r'$m_{{total}} = 1 M_\odot$, $0.08<m<100$')
+    
+    ax.set_title(r'Relative to Kroupa (2001), $m_{{total}} = 1 M_\odot$, $0.08<m<100$')
     fig.show()
