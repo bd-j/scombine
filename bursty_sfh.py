@@ -167,13 +167,13 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     dt = lt[1] - lt[0]
     sps.params['sfh'] = 0 #make sure SSPs
     # get *all* the ssps
-    #wave, spec = sps.get_spectrum(peraa = True, tage = 0) #slower, stabler way
+    wave, spec = sps.get_spectrum(peraa = True, tage = 0) #slower, stabler way
     #ssp_ages = 10**sps.log_age
     # slightly more dangerous fast way, requiring the up-to-date python-fsps
-    zmet = sps.params['zmet']-1
-    spec, mass, _ = sps.all_ssp_spec(peraa =True, update = True)
-    spec = spec[:,:,zmet].T
-    wave = sps.wavelengths
+    #zmet = sps.params['zmet']-1
+    #spec, mass, _ = sps.all_ssp_spec(peraa =True, update = True)
+    #spec = spec[:,:,zmet].T
+    #wave = sps.wavelengths
     ssp_ages = 10**sps.ssp_ages #in yrs
     
     # redden the SSP spectra
