@@ -114,6 +114,7 @@ def smooth_sfh(sfh=None, bin_res=10., **kwargs):
     return tmax - times, monospline.derivative(der=1)(times)
 
 def bursty_sps(lookback_time, lt, sfr, sps,
+               safe=True,
                av=None, dav=None, nsplit=9,
                dust_curve=attenuation.cardelli):
     """
@@ -165,20 +166,23 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     """
     
     dt = lt[1] - lt[0]
+    assert np.all(np.isclose(np.diff(lt), dt))
+    
     sps.params['sfh'] = 0 #make sure SSPs
     # get *all* the ssps
-    wave, spec = sps.get_spectrum(peraa = True, tage = 0) #slower, stabler way
-    #ssp_ages = 10**sps.log_age
-    # slightly more dangerous fast way, requiring the up-to-date python-fsps
-    #zmet = sps.params['zmet']-1
-    #spec, mass, _ = sps.all_ssp_spec(peraa =True, update = True)
-    #spec = spec[:,:,zmet].T
-    #wave = sps.wavelengths
+    if safe:
+        wave, spec = sps.get_spectrum(peraa=True, tage=0) #slower, stabler way
+    else:
+        # slightly more dangerous fast way, requiring the up-to-date python-fsps
+        zmet = sps.params['zmet']-1
+        spec, mass, _ = sps.all_ssp_spec(peraa=True, update=True)
+        spec = spec[:,:,zmet].T
+        wave = sps.wavelengths
     ssp_ages = 10**sps.ssp_ages #in yrs
     
     # redden the SSP spectra
-    spec, lir = redden(wave, spec, av = av, dav = dav,
-                       dust_curve = dust_curve, nsplit =nsplit)
+    spec, lir = redden(wave, spec, av=av, dav=dav,
+                       dust_curve=dust_curve, nsplit =nsplit)
     
     target_lt = np.atleast_1d(lookback_time)
     #set up output
@@ -186,13 +190,32 @@ def bursty_sps(lookback_time, lt, sfr, sps,
     aw = np.zeros( [ len(target_lt), len(ssp_ages) ] )
 
     for i,tl in enumerate(target_lt):
-        valid = (lt >= tl) #only consider time points in the past of this lookback time.
-        inds, weights = weights_1DLinear(np.log(ssp_ages), np.log(lt[valid] - tl))
-        #aggregate the weights for each ssp time index, after accounting for SFR
+        valid = (lt > tl) #only consider time points in the past of this lookback time.
+        #inds, weights = weights_1DLinear(np.log(ssp_ages), np.log(lt[valid] - tl))
+
+        #augment the t_lookback array of the SFH with the SSP ages
+        sfr_ssp = np.interp(ssp_ages, lt-tl, sfr, left=0.0, right=0.0)
+        tmp_t = np.concatenate([ssp_ages, lt[valid]-tl])
+        tmp_sfr = np.concatenate([sfr_ssp, sfr[valid]])
+        #sort the augmented array by age
+        order = tmp_t.argsort()
+        tmp_t = tmp_t[order]
+        tmp_sfr = tmp_sfr[order]
+        # get weights to interpolate the log_t array
+        inds, weights = weights_1DLinear(ssp_ages, tmp_t)
+        # aggregate the weights for each ssp time index, after
+        # accounting for SFR *dt
+        tmp_dt = np.gradient(tmp_t)
         agg_weights = np.bincount( inds.flatten(),
-                                   weights = (weights * sfr[valid,None]).flatten(),
-                                   minlength = len(ssp_ages) ) * dt
-        int_spec[i,:] = (spec * agg_weights[:,None]).sum(axis = 0)
+                                   weights = (weights * tmp_sfr[:, None] *
+                                              tmp_dt[:, None]).flatten(),
+                                   minlength = len(ssp_ages) )
+
+        
+        #agg_weights = np.bincount( inds.flatten(),
+        #                           weights = (weights * sfr[valid, None]).flatten(),
+        #                           minlength = len(ssp_ages) ) * dt
+        int_spec[i,:] = (spec * agg_weights[:,None]).sum(axis=0)
         aw[i,:] = agg_weights
     if lir is not None:
         lir_tot = (aw * lir[None,:]).sum(axis = -1)

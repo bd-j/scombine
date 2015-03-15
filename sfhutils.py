@@ -194,7 +194,8 @@ def read_fsps(filename):
         f.close()
     return np.array(age), np.array(logmass), np.array(loglbol), np.array(logsfr), np.array(spec), np.array(wave), header
 
-def weights_1DLinear(model_points, target_points, extrapolate = False):
+def weights_1DLinear(model_points, target_points,
+                     extrapolate = False, left=0, right=0):
     """
     The interpolation weights are determined from 1D linear
     interpolation.
@@ -235,9 +236,9 @@ def weights_1DLinear(model_points, target_points, extrapolate = False):
         lo[above_scale] = hi[above_scale] #set the indices to be indentical in these cases
         hi[below_scale] = lo[below_scale]
         w_lo[above_scale] = 0 #make the combined weights sum to one
-        w_hi[above_scale] = 1
+        w_hi[above_scale] = left
         w_hi[below_scale] = 0
-        w_lo[below_scale] = 1
+        w_lo[below_scale] = right
 
     inds = np.vstack([lo,hi]).T
     weights = np.vstack([w_lo, w_hi]).T
