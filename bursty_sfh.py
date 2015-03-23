@@ -84,7 +84,7 @@ def burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
 
 def tau_burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
                   mass=0.0, bin_res=50., tau=100e9, t_mass=0.0,
-                  tstart=13.7e9, sftype='tau'):
+                  tstart=13.7e9, sftype='tau', gamma=1.4):
     """Construct an SFH that is composed of a smooth rising or falling
     SFH with superposed bursts, subject to a constraint on the total
     stellar mass formed.
@@ -93,6 +93,7 @@ def tau_burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
         The SFH form for the smooth component.  One of:
         * ``linear rising``: SFR~t/tau
         * ``tau``: SFR~e^{-t/tau}
+        * ``power-law``: SFR~(t/tau)^gamma
         
     :param tstart:
         Lookback time of the start of the SFH, in yrs (e.g.
@@ -136,6 +137,9 @@ def tau_burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
     if sftype == 'linear rising':
         sfr = normalized_times
         int_sfr = tau/2.0 * normalized_times[0]**2
+    elif sftype == 'power-law':
+        sfr = normalized_times**gamma
+        int_sfr = (tau/(gamma+1)) * normalized_times[0]**(gamma+1)
     elif sftype == 'exponential rising':
         raise(NotImplementedError)
     elif sftype == 'delayed tau':
