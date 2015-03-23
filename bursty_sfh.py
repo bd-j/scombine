@@ -11,7 +11,7 @@ lightspeed = 2.998e18 #AA/s
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
 def burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
-              sfh=None, bin_res=10.):
+              sfh=None, bin_res=50.):
     """
     Given a binned SFH as a numpy structured array, and burst
     parameters, generate a realization of the SFH at high temporal
@@ -21,7 +21,7 @@ def burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
     bin_res.
 
     :param fwhm_burst: default 0.05
-        the fwhm of the bursts to add, in Gyr.
+        the fwhm of the bursts to add, in units of the sfh time axis.
         
     :param f_burst: default, 0.5
         the fraction of stellar mass formed in each bin that is formed
@@ -35,7 +35,9 @@ def burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
         
     :param sfh: structured ndarray
         A binned sfh in numpy structured array format.  Usually the
-        result of sfhutils.load_angst_sfh()
+        result of sfhutils.load_angst_sfh(), in which case the units
+        are log(t/yrs) and should be converted to linear years by user
+        first.
         
     :param bin_res: default 10
         Factor by which to increase the time resolution of the output
@@ -54,9 +56,10 @@ def burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
     #
     a, tburst, A, sigma, f_burst_actual = [],[],[],[],[]
     for i,abin in enumerate(sfh):
-     #   print('------\nbin #{0}'.format(i))
-        res = convert_burst_pars(fwhm_burst = fwhm_burst, f_burst = f_burst, contrast = contrast,
-                             bin_width = (abin['t2']-abin['t1']), bin_sfr = abin['sfr'])
+        res = convert_burst_pars(fwhm_burst=fwhm_burst, f_burst=f_burst,
+                                 contrast=contrast,
+                                 bin_width=(abin['t2']-abin['t1']),
+                                 bin_sfr=abin['sfr'])
         a += [res[0]]
         if len(res[1]) > 0:
             tburst += (res[1] + abin['t1']).tolist()
@@ -77,6 +80,96 @@ def burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
     sfr = np.array(a)[bin_num] + gauss(times, tburst, A, sigma)
     
     return times, sfr, f_burst_actual
+
+
+def tau_burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
+                  mass=0.0, bin_res=50., tau=100e9, t_mass=0.0,
+                  tstart=13.7e9, sftype='tau'):
+    """Construct an SFH that is composed of a smooth rising or falling
+    SFH with superposed bursts, subject to a constraint on the total
+    stellar mass formed.
+
+    :param sftype:
+        The SFH form for the smooth component.  One of:
+        * ``linear rising``: SFR~t/tau
+        * ``tau``: SFR~e^{-t/tau}
+        
+    :param tstart:
+        Lookback time of the start of the SFH, in yrs (e.g.
+        astropy.cosmology.WMAP9.lookback_time(10).value * 1e9)
+
+    :param t_mass:
+        The lookback time (in yrs) at which the total stellar mass
+        formed is geven by ``mass``.  Must be less than tstart.
+        
+    :param mass:
+        The total stellar mass formed by t_mass.
+
+    :param tau:
+        Timescale parameter
+
+    :returns time:
+        Lookback time in yrs
+
+    :returns sfr:
+        SFR (M_sun/yr) at the locations of time.
+
+    :returns bursts:
+        Two-element tuple composed of arrays of the lookback times and total stellar
+        mass formed in each burst
+        
+    """
+
+    assert t_mass < tstart
+    
+    bin_width = tstart - t_mass
+    bin_sfr = mass / bin_width # average SFR
+
+    sigma_burst = fwhm_burst/2.35
+    dt = sigma_burst/5.
+    if dt == 0:
+        dt = bin_width/bin_res
+    times = np.arange(np.round(bin_width/dt)) * dt + t_mass
+
+    normalized_times = (tstart - times) / tau
+
+    if sftype == 'linear rising':
+        sfr = normalized_times
+        int_sfr = tau/2.0 * normalized_times[0]**2
+    elif sftype == 'exponential rising':
+        raise(NotImplementedError)
+    elif sftype == 'delayed tau':
+        raise(NotImplementedError)
+    else:
+        # Standard tau decline
+        sfr = np.exp(-normalized_times)
+        int_sfr = tau * (1.0 - np.exp(-normalized_times[0]))
+
+    smooth_mass = mass * (1.0 - f_burst)
+    sfr *= smooth_mass/int_sfr
+
+    #start adding bursts
+    burst_mass_total, A_burst, t_burst = 0.0, [], []
+    while burst_mass_total < mass*f_burst:
+        t_burst.append(np.random.uniform(t_mass, tstart))
+        sfr_burst = np.interp(t_burst[-1], times, sfr) * contrast
+        A_burst.append(sfr_burst * sigma_burst * np.sqrt(2*np.pi))
+        burst_mass_total += A_burst[-1]
+    t_burst = np.array(t_burst)
+    A_burst = np.array(A_burst)
+    # flip a coin to decide whether to go over or under the desired
+    # burst mass
+    if np.random.uniform(0,1) < 0.5:
+        t_burst = t_burst[:-1]
+        A_burst = A_burst[:-1]
+    # Adjust burst amplitudes to get the correct burst_fraction (and
+    # total mass) in the face of burst quantization
+    A_burst *= mass*f_burst/A_burst.sum()
+    sfr = sfr + gauss(times, t_burst, A_burst, sigma_burst)
+
+    return times, sfr, (t_burst, A_burst)
+     
+    
 
 def smooth_sfh(sfh=None, bin_res=10., **kwargs):
     """Method to produce a smooth SFH from a given step-wise SFH, under the
@@ -300,6 +393,8 @@ def gauss(x, mu, A, sigma):
        The value of the sum of the gaussians at positions x.
         
     """
+    if len(mu) == 0:
+        return np.zeros_like(x)
     mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
     val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
     return val.sum(axis = -1)
