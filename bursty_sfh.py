@@ -461,10 +461,13 @@ def examples(filename='demo/sfhs/ddo75.lowres.ben.v1.sfh',
     import matplotlib.pyplot as pl
     import fsps
     from sfhutils import load_angst_sfh
-    
+
+    # Instantiate the SPS object and make any changes to the parameters here
     sps = fsps.StellarPopulation(zcontinuous=1)
     sps.params['logzsol'] = -1.0
-    
+
+    # Load the input SFH, and set any bursts if desired (set f_burst=0
+    # to not add bursts)
     f_burst, fwhm_burst, contrast = 0.5, 0.05 * 1e9, 5
     sfh = load_angst_sfh(filename)
     sfh['t1'] = 10.**sfh['t1']
@@ -472,11 +475,20 @@ def examples(filename='demo/sfhs/ddo75.lowres.ben.v1.sfh',
     sfh['sfr'][0] *=  1 - (sfh['t1'][0]/sfh['t2'][0])
     sfh[0]['t1'] = 0.
     mtot = ((sfh['t2'] - sfh['t1']) * sfh['sfr']).sum()
-    
-    lt, sfr, tb = burst_sfh(sfh=sfh, fwhm_burst=fwhm_burst, f_burst=f_burst, contrast=contrast)
-    aw = sfh_weights(lt, sfr, 10**sps.ssp_ages, lookback_time=lookback_time)
-    wave, spec, mstar, lir = bursty_sps(lt, sfr, sps, lookback_time=lookback_time)
 
+    # generate a high temporal resolution SFH, with bursts if f_burst > 0
+    lt, sfr, tb = burst_sfh(sfh=sfh, fwhm_burst=fwhm_burst, f_burst=f_burst, contrast=contrast)
+    # get the interpolation weights.  This does not have to be run in
+    # general (it is run interior to bursty_sps) unless you are
+    # debugging or for plotting purposes
+    aw = sfh_weights(lt, sfr, 10**sps.ssp_ages, lookback_time=lookback_time)
+    # get the intrinsic spectra at the lookback_times specified.
+    wave, spec, mstar, _ = bursty_sps(lt, sfr, sps, lookback_time=lookback_time)
+    # get reddened spectra, Calzetti foreground screen
+    wave, red_spec, _, lir = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
+                                        dust_curve=attenuation.calzetti, av=1, dav=0)
+    
+    # Output plotting.
     pl.figure()
     for i,t in enumerate(lookback_time):
         pl.plot(wave, spec[i,:], label = r'$t_{{lookback}} = ${0:5.1f} Gyr'.format(t/1e9))
