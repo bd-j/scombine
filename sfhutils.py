@@ -195,9 +195,9 @@ def read_fsps(filename):
     return np.array(age), np.array(logmass), np.array(loglbol), np.array(logsfr), np.array(spec), np.array(wave), header
 
 def weights_1DLinear(model_points, target_points,
-                     extrapolate = False, left=0, right=0):
-    """
-    The interpolation weights are determined from 1D linear
+                     extrapolate = False, left=0.0, right=0.0,
+                     **extras):
+    """The interpolation weights are determined from 1D linear
     interpolation.
     
     :param model_points: ndarray, shape(nmod)
@@ -213,10 +213,7 @@ def weights_1DLinear(model_points, target_points,
     :returns weights: narray, shape (ntarg,2)
          The weights of each model given by ind in the interpolates.
     """
-
     #well this is ugly.
-    #order = model_points.argsort()
-    #mod_sorted = model_points[order]
     mod_sorted = model_points
     
     x_new_indices = np.searchsorted(mod_sorted, target_points)
