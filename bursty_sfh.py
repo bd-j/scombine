@@ -206,7 +206,8 @@ def smooth_sfh(sfh=None, bin_res=10., **kwargs):
 
 def bursty_sps(lt, sfr, sps, lookback_time=[0],
                dust_curve=attenuation.cardelli,
-               av=None, dav=None, nsplit=9, **extras):
+               av=None, dav=None, nsplit=9,
+               logzsol=None, **extras):
     """Obtain the spectrum of a stellar poluation with arbitrary
     complex SFH at a given lookback time.  The SFH is provided in
     terms of SFR vs t_lookback. Note that this in in contrast to the
@@ -238,6 +239,10 @@ def bursty_sps(lt, sfr, sps, lookback_time=[0],
         The maximum differential attenuation, in V band
         magnitudes. Passed to redden()
 
+    :param logzsol: ndarray of shape (nspec)
+        The metallicity in units of log(Z/Z_sun) corresponding to each
+        SSP age.
+
     :returns wave: ndarray, shape (nwave)
         The wavelength array
         
@@ -252,12 +257,21 @@ def bursty_sps(lt, sfr, sps, lookback_time=[0],
         The total absorbed luminosity, in L_sun. 
     """
     # get *all* the ssps
-    sps.params['sfh'] = 0 #make sure SSPs    
-    wave, spec = sps.get_spectrum(peraa=True, tage=0)
-    mass = sps.stellar_mass.copy()
-    ssp_ages = 10**sps.ssp_ages #in yrs
-    
-    # redden the SSP spectra
+    sps.params['sfh'] = 0  # make sure SSPs
+    ssp_ages = 10**sps.ssp_ages  # in yrs
+    if logzsol is None:
+        wave, spec = sps.get_spectrum(peraa=True, tage=0)
+        mass = sps.stellar_mass.copy()
+    else:
+        assert(sps._zcontinuous > 0)
+        spec = []
+        for tage, logz in zip(ssp_ages, logzsol):
+            sps.params['logzsol'] = logz
+            spec.append(sps.get_spectrum(peraa=True, tage=tage)[1]) 
+        spec = np.array(spec)
+        wave = sps.wavelengths
+        
+    # Redden the SSP spectra
     spec, lir = redden(wave, spec, av=av, dav=dav,
                        dust_curve=dust_curve, nsplit=nsplit)
 
@@ -475,7 +489,7 @@ def examples(filename='demo/sfhs/ddo75.lowres.ben.v1.sfh',
     sfh['sfr'][0] *=  1 - (sfh['t1'][0]/sfh['t2'][0])
     sfh[0]['t1'] = 0.
     mtot = ((sfh['t2'] - sfh['t1']) * sfh['sfr']).sum()
-
+    
     # generate a high temporal resolution SFH, with bursts if f_burst > 0
     lt, sfr, tb = burst_sfh(sfh=sfh, fwhm_burst=fwhm_burst, f_burst=f_burst, contrast=contrast)
     # get the interpolation weights.  This does not have to be run in
@@ -487,6 +501,21 @@ def examples(filename='demo/sfhs/ddo75.lowres.ben.v1.sfh',
     # get reddened spectra, Calzetti foreground screen
     wave, red_spec, _, lir = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
                                         dust_curve=attenuation.calzetti, av=1, dav=0)
+    # get reddened spectra, SexA differntial extinction plus SMC
+    from dust import sexAmodel
+    dav = sexAmodel(10**sps.ssp_ages)
+    wave, red_spec, _, lir = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
+                                        dust_curve=attenuation.smc, av=1, dav=dav)
+    
+    # Get intrinsic spectrum including an age metallicity relation
+    def amr(ages, **extras):
+        """This should take an array of ages (linear years) and return
+        an array of metallicities (units of log(Z/Z_sun)
+        """
+        return logz_array
+    wave, spec, mstar, _ = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
+                                      logzsol=amr(10**sps.ssp_ages, sfh=sfh))
+    
     
     # Output plotting.
     pl.figure()

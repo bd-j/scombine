@@ -1,28 +1,35 @@
 import numpy as np
 
-def sexAmodel(avmax, sfh):
-    """
-    Calculate the distribution of max Av as a function of age for
-    the Dolphin 2002 differential attenuation model.
+def sexAmodel(avmax, ages=None, sfh=None):
+    """Calculate the distribution of maximum Av as a function of age
+    for the Dolphin 2002 differential attenuation model.
 
     :param avmax:
         The maximum A_v at t_lookback = 0
 
+    :param ages:
+        Ages at which to generate Av values.  Linear years
+        
     :param sfh:
-        sfh as numpy structured array, output of sfhutils.load_angst_sfh()
+        sfh as numpy structured array, output of
+        sfhutils.load_angst_sfh().  It should have a `t2` field,
+        giving age in units of log10(years)
 
     :returns dav:
-        A sequence of length the number of time bins, giving dA_v
-        max in each time bin
+        A sequence of length the number of time bins or ages, giving
+        dA_v max in each time bin
     """
-    dav = np.clip(((10**sfh['t2']-4e7) *
+    if sfh is not None:
+        if ages is not None:
+            print("Warning: SFH and ages both passed to dust.sexAmodel.  Using SFH")
+        ages = 10**sfh['t2']
+    dav = np.clip(((10**ages-4e7) *
                    (-avmax) / 0.6e8 + avmax), 0, avmax)
     return dav
 
 
 def redden(wave, spec, av=None, dav=None, nsplit=9,
            dust_curve=None, wlo=1216., whi=2e4, **kwargs):
-    
     """Redden the spectral components.  The attenuation of a given
     star is given by the model av + U(0,dav) where U is the uniform
     random function.  Extensive use of broadcasting.
