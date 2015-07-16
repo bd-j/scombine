@@ -264,11 +264,13 @@ def bursty_sps(lt, sfr, sps, lookback_time=[0],
         mass = sps.stellar_mass.copy()
     else:
         assert(sps._zcontinuous > 0)
-        spec = []
-        for tage, logz in zip(ssp_ages, logzsol):
+        spec, mass = [], []
+        for tage, logz in zip(ssp_ages/1e9, logzsol):
             sps.params['logzsol'] = logz
-            spec.append(sps.get_spectrum(peraa=True, tage=tage)[1]) 
+            spec.append(sps.get_spectrum(peraa=True, tage=tage)[1])
+            mass.append(sps.stellar_mass)
         spec = np.array(spec)
+        mass = np.array(mass)
         wave = sps.wavelengths
         
     # Redden the SSP spectra
@@ -503,7 +505,7 @@ def examples(filename='demo/sfhs/ddo75.lowres.ben.v1.sfh',
                                         dust_curve=attenuation.calzetti, av=1, dav=0)
     # get reddened spectra, SexA differntial extinction plus SMC
     from dust import sexAmodel
-    dav = sexAmodel(10**sps.ssp_ages)
+    dav = sexAmodel(davmax=1.0, ages=10**sps.ssp_ages)
     wave, red_spec, _, lir = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
                                         dust_curve=attenuation.smc, av=1, dav=dav)
     
@@ -512,6 +514,7 @@ def examples(filename='demo/sfhs/ddo75.lowres.ben.v1.sfh',
         """This should take an array of ages (linear years) and return
         an array of metallicities (units of log(Z/Z_sun)
         """
+        logz_array = -1.0 * np.ones_like(ages)
         return logz_array
     wave, spec, mstar, _ = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
                                       logzsol=amr(10**sps.ssp_ages, sfh=sfh))
@@ -528,7 +531,7 @@ def examples(filename='demo/sfhs/ddo75.lowres.ben.v1.sfh',
 
     fig, ax = pl.subplots(2,1)
     for i,t in enumerate(lookback_time):
-        ax[1].plot(10**sps.log_age, aw[i,:], marker='o', markersize=2,
+        ax[1].plot(10**sps.ssp_ages, aw[i,:], marker='o', markersize=2,
                    label=r'$t_{{lookback}} = ${0:5.1f} Gyr'.format(t/1e9))
         mstring = 'm_formed({0:3.1f}Gyr)={1}, m_formed(total)={2}, m_formed({0:3.1f}Gyr)/m_formed(total)={3}'
         print(mstring.format(t/1e9, aw[i,:].sum(), mtot, aw[i,:].sum()/mtot))

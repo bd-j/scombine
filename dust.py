@@ -1,6 +1,6 @@
 import numpy as np
 
-def sexAmodel(avmax, ages=None, sfh=None):
+def sexAmodel(davmax, ages=None, sfh=None):
     """Calculate the distribution of maximum Av as a function of age
     for the Dolphin 2002 differential attenuation model.
 
@@ -23,8 +23,8 @@ def sexAmodel(avmax, ages=None, sfh=None):
         if ages is not None:
             print("Warning: SFH and ages both passed to dust.sexAmodel.  Using SFH")
         ages = 10**sfh['t2']
-    dav = np.clip(((10**ages-4e7) *
-                   (-avmax) / 0.6e8 + avmax), 0, avmax)
+    dav = np.clip(((ages-4e7) *
+                   (-davmax) / 0.6e8 + davmax), 0, davmax)
     return dav
 
 
