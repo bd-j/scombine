@@ -29,7 +29,7 @@ def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False, bg_fla
     #fn = glob.glob("{0}*{1}*sfh".format(sfhdir,name))[0]
     fn = name
     if bg_flag:
-        data = np.genfromtxt(fn, usecols=(0,1,2,3,6,12) , dtype=dt, skiprows=skiprows, skip_footer=skip_footer)
+        data = np.genfromtxt(fn, usecols=(0,1,2,3,6,12) , dtype=dt, skip_header=skiprows, skip_footer=skip_footer)
     else:
         data = np.loadtxt(fn, usecols = (0,1,2,3,6,12) ,dtype = dt, skiprows = skiprows)
     if fix_youngest:
