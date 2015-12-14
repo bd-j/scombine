@@ -2,8 +2,8 @@ import sys
 import numpy as np
 from scipy import interpolate
 
-from sfhutils import weights_1DLinear
-from dust import redden
+from .sfhutils import weights_1DLinear
+from .dust import redden
 from sedpy import attenuation
 
 lsun, pc = 3.846e33, 3.085677581467192e18
@@ -478,7 +478,7 @@ def examples(filename='demo/sfhs/ddo75.lowres.ben.v1.sfh',
     """
     import matplotlib.pyplot as pl
     import fsps
-    from sfhutils import load_angst_sfh
+    from scombine.sfhutils import load_angst_sfh
 
     # Instantiate the SPS object and make any changes to the parameters here
     sps = fsps.StellarPopulation(zcontinuous=1)
@@ -506,7 +506,7 @@ def examples(filename='demo/sfhs/ddo75.lowres.ben.v1.sfh',
     wave, red_spec, _, lir = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
                                         dust_curve=attenuation.calzetti, av=1, dav=0)
     # get reddened spectra, SexA differntial extinction plus SMC
-    from dust import sexAmodel
+    from scombine.dust import sexAmodel
     dav = sexAmodel(davmax=1.0, ages=10**sps.ssp_ages)
     wave, red_spec, _, lir = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
                                         dust_curve=attenuation.smc, av=1, dav=dav)
