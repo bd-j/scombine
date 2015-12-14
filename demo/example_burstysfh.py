@@ -2,12 +2,12 @@ import sys, os, glob
 import numpy as np
 import fsps
 import sfhutils as utils
-import bursty_sfh as bsp
+import scombine.bursty_sfh as bsp
 from sedpy import attenuation, observate
 
-sps = fsps.StellarPopulation()
+sps = fsps.StellarPopulation(zcontinuous=1)
 sps.params['sfh'] = 0
-sps.params['zmet'] = 4 #solar
+sps.params['logzsol'] = 0.0 # solar
 sps.params['imf_type'] = 0
 
 filternamelist = ['galex_FUV','wfc3_uvis_f275w']
@@ -34,13 +34,13 @@ for i, filen in enumerate(files):
     mtot = ((sfh['t2'] - sfh['t1']) * sfh['sfr']).sum()
 
     #convert into a high resolution sfh, with *no* intrabin sfr variations
-    lt, sfr, fb = bsp.burst_sfh(fwhm_burst = 0.05, f_burst = 0., contrast = 1.,
-                                sfh = sfh, bin_res = 20.)
+    lt, sfr, fb = bsp.burst_sfh(fwhm_burst=0.05, f_burst=0., contrast=1.,
+                                sfh=sfh, bin_res=20.)
     
     # Get the attenuated spectra
     #  and IR luminosities
-    wave, spec, aw, lir = bsp.bursty_sps(t_lookback, lt, sfr, sps,
-                                         av = av, dav = dav, nsplit = 30)
+    wave, spec, mass, lir = bsp.bursty_sps(lt, sfr, sps, lookback_times=t_lookback,
+                                           av=av, dav=dav, nsplit=30)
     for j, jt in enumerate(t_lookback):
         pl.plot(wave, spec[j,:] * wave * bsp.to_cgs,
                 label = '{0} @ {1}'.format(objname[j], tl[j]))
@@ -50,7 +50,8 @@ for i, filen in enumerate(files):
     mags = observate.getSED(wave, spec * bsp.to_cgs, filterlist = filterlist)
     
     # Get the intrinsic spectrum and project onto filters
-    wave, spec, aw = bsp.bursty_sps(t_lookback, lt, sfr, sps, av = None, dav = None)
+    wave, spec, mass, _ = bsp.bursty_sps(lt, sfr, sps, lookback_times=t_lookback,
+                                         av=None, dav=None)
     mags_int = observate.getSED(wave, spec * bsp.to_cgs, filterlist = filterlist)
 
 
