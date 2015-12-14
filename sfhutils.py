@@ -8,7 +8,7 @@ pc2cm = 3.086e18
 magsphere = 4.*np.pi*100*pc2cm**2
 skiprows = 0 #number of extra rows at the top of the SFH files
 
-def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False):
+def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False, bg_flag=False, skip_footer=2):
     """
     Read a `match`-produced, zcombined SFH file into a numpy
     structured array.
@@ -28,7 +28,10 @@ def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False):
     dt = np.dtype([('t1', ty), ('t2',ty), ('dmod',ty), ('sfr',ty), ('met', ty), ('mformed',ty)])
     #fn = glob.glob("{0}*{1}*sfh".format(sfhdir,name))[0]
     fn = name
-    data = np.loadtxt(fn, usecols = (0,1,2,3,6,12) ,dtype = dt, skiprows = skiprows)
+    if bg_flag:
+        data = np.genfromtxt(fn, usecols=(0,1,2,3,6,12) , dtype=dt, skip_header=skiprows, skip_footer=skip_footer)
+    else:
+        data = np.loadtxt(fn, usecols = (0,1,2,3,6,12) ,dtype = dt, skiprows = skiprows)
     if fix_youngest:
         pass
     return data
