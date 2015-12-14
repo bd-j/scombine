@@ -11,35 +11,35 @@ lightspeed = 2.998e18 #AA/s
 #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
-def burst_sfh(sfh=None, bin_res=50,
-              fwhm_burst=0.05, f_burst=0.0, contrast=5, **extras):
-    """Given a binned SFH as a numpy structured array, and burst
-    parameters, generate a realization of the SFH at high temporal
-    resolution. The output time resolution will be approximately
-    fwhm_burst/12 unless no bursts are generated, in which case the
-    output time resolution is the minimum bin width divided by
-    bin_res.
+
+def burst_sfh(sfh=None, bin_res=50, fwhm_burst=0.05, f_burst=0.0, contrast=5,
+              **extras):
+    """Given a binned SFH as a numpy structured array, and burst parameters,
+    generate a realization of the SFH at high temporal resolution. The output
+    time resolution will be approximately fwhm_burst/12 unless no bursts are
+    generated, in which case the output time resolution is the minimum bin
+    width divided by bin_res.
 
     :param sfh: structured ndarray
-        A binned sfh in numpy structured array format.  Usually the
-        result of sfhutils.load_angst_sfh()
+        A binned sfh in numpy structured array format.  Usually the result of
+        sfhutils.load_angst_sfh()
 
     :param bin_res: default 50
-        Factor by which to increase the time resolution of the output
-        grid, relative to the shortest bin width in the supplied SFH.
+        Factor by which to increase the time resolution of the output grid,
+        relative to the shortest bin width in the supplied SFH.
     
     :param fwhm_burst: default 0.05
         the fwhm of the bursts to add, in Gyr.
         
     :param f_burst: default, 0
-        the fraction of stellar mass formed in each bin that is formed
-        in the bursts.  If 0, no bursts are formed.
+        the fraction of stellar mass formed in each bin that is formed in the
+        bursts.  If 0, no bursts are formed.
         
     :param contrast: default, 5
-        the approximate maximum height or amplitude of the bursts
-        above the constant background SFR.  This is only approximate
-        since it is altered to preserve f_burst and fwhm_burst even
-        though the number of busrsts is quantized.
+        the approximate maximum height or amplitude of the bursts above the
+        constant background SFR.  This is only approximate since it is altered
+        to preserve f_burst and fwhm_burst even though the number of busrsts is
+        quantized.
 
     :returns times:  ndarray of shape (nt)
         The output linear, regular temporal grid of lookback times.
@@ -79,13 +79,13 @@ def burst_sfh(sfh=None, bin_res=50,
     
     return times, sfr, tburst
 
-def tau_burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
-                  mass=0.0, bin_res=50., tau=100e9, t_mass=0.0,
-                  tstart=13.7e9, sftype='tau', gamma=1.4):
-    """Given a binned SFH as a numpy structured array, construct an
-    SFH that is composed of a smooth rising or falling SFH with
-    superposed bursts, subject to a constraint on the total stellar
-    mass formed.
+
+def tau_burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5, mass=0.0,
+                  bin_res=50., tau=100e9, t_mass=0.0, tstart=13.7e9,
+                  sftype='tau', gamma=1.4):
+    """Given a binned SFH as a numpy structured array, construct an SFH that is
+    composed of a smooth rising or falling SFH with superposed bursts, subject
+    to a constraint on the total stellar mass formed.
 
     :param sftype:
         The SFH form for the smooth component.  One of:
@@ -98,8 +98,8 @@ def tau_burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
         astropy.cosmology.WMAP9.lookback_time(10).value * 1e9)
 
     :param t_mass:
-        The lookback time (in yrs) at which the total stellar mass
-        formed is geven by ``mass``.  Must be less than tstart.
+        The lookback time (in yrs) at which the total stellar mass formed is
+        geven by ``mass``.  Must be less than tstart.
         
     :param mass:
         The total stellar mass formed by t_mass.
@@ -114,8 +114,8 @@ def tau_burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
         SFR (M_sun/yr) at the locations of time.
 
     :returns bursts:
-        Two-element tuple composed of arrays of the lookback times and total stellar
-        mass formed in each burst
+        Two-element tuple composed of arrays of the lookback times and total
+        stellar mass formed in each burst.
     """
     assert t_mass < tstart
     
@@ -169,6 +169,7 @@ def tau_burst_sfh(fwhm_burst=0.05, f_burst=0.5, contrast=5,
 
     return times, sfr, (t_burst, A_burst)
 
+
 def smooth_sfh(sfh=None, bin_res=10., **kwargs):
     """Method to produce a smooth SFH from a given step-wise SFH, under the
     constraint that the  total integrated mass at the end of each 'step' is
@@ -176,13 +177,12 @@ def smooth_sfh(sfh=None, bin_res=10., **kwargs):
     M_tot(t) which is then differentiated to produce the SFH.
 
     :param sfh:
-        A stepwise SFH in the format produced by `load_angst_sfh()`,
-        but with the time fields converted to linear time. A structured
-        array.
+        A stepwise SFH in the format produced by `load_angst_sfh()`, but with
+        the time fields converted to linear time. A structured array.
        
     :param bin_res: default 10
-        Factor by which to increase the time resolution of the output
-        grid, relative to the shortest bin width in the supplied SFH.
+        Factor by which to increase the time resolution of the output grid,
+        relative to the shortest bin width in the supplied SFH.
 
     :returns times:  ndarray of shape (nt)
         The output linear, regular temporal grid of lookback times.
@@ -204,17 +204,16 @@ def smooth_sfh(sfh=None, bin_res=10., **kwargs):
     times = tmax - np.arange(np.round(sfh['t2'].max()/dt)) * dt
     return tmax - times, monospline.derivative(der=1)(times)
 
-def bursty_sps(lt, sfr, sps, lookback_time=[0],
-               dust_curve=attenuation.cardelli,
-               av=None, dav=None, nsplit=9,
-               logzsol=None, **extras):
-    """Obtain the spectrum of a stellar poluation with arbitrary
-    complex SFH at a given lookback time.  The SFH is provided in
-    terms of SFR vs t_lookback. Note that this in in contrast to the
-    normal specification in terms of time since the big
-    bang. Interpolation of the available SSPs to the time sequence of
-    the SFH is accomplished by linear interpolation in log t.  Highly
-    oscillatory SFHs require dense sampling of the temporal axis to
+
+def bursty_sps(lt, sfr, sps, lookback_time=[0], logzsol=None,
+               dust_curve=attenuation.cardelli, av=None, dav=None, nsplit=9,
+               **extras):
+    """Obtain the spectrum of a stellar poluation with arbitrary complex SFH at
+    a given lookback time.  The SFH is provided in terms of SFR vs
+    t_lookback. Note that this in in contrast to the normal specification in
+    terms of time since the big bang. Interpolation of the available SSPs to
+    the time sequence of the SFH is accomplished by linear interpolation in log
+    t.  Highly oscillatory SFHs require dense sampling of the temporal axis to
     obtain accurate results.
 
     :param lt: ndarray, shape (ntime)
@@ -224,24 +223,23 @@ def bursty_sps(lt, sfr, sps, lookback_time=[0],
         The SFR corresponding to each element of lt, in M_sun/yr.
         
     :param sps: fsps.StellarPopulation instance
-        The fsps stellar population (with metallicty and IMF
-        parameters set) to use for the SSP spectra.
+        The fsps stellar population (with metallicty and IMF parameters set) to
+        use for the SSP spectra.
 
     :param lookback_time: scalar or ndarray, shape (ntarg)
-        The lookback time(s) at which to obtain the spectrum. In yrs.
-        Defaults to [0]
+        The lookback time(s) at which to obtain the spectrum. In yrs.  Defaults
+        to [0].
 
     :param av: scalar or ndarray of shape (nspec)
-        The attenuation at V band, in magnitudes, that affects all
-        stars equally. Passed to redden()
+        The attenuation at V band, in magnitudes, that affects all stars
+        equally. Passed to redden().
 
     :param dav: scalar or ndarray of shape (nspec)
-        The maximum differential attenuation, in V band
-        magnitudes. Passed to redden()
+        The maximum differential attenuation, in V band magnitudes. Passed to
+        redden().
 
     :param logzsol: ndarray of shape (nspec)
-        The metallicity in units of log(Z/Z_sun) corresponding to each
-        SSP age.
+        The metallicity in units of log(Z/Z_sun) corresponding to each SSP age.
 
     :returns wave: ndarray, shape (nwave)
         The wavelength array
@@ -250,8 +248,8 @@ def bursty_sps(lt, sfr, sps, lookback_time=[0],
         The integrated spectrum at lookback_time, in L_sun/AA
         
     :returns mstar: ndarray, shape(ntarg, nage)
-        The total stellar mass, excluding mass returned to the ISM by
-        stellar evolution.
+        The total stellar mass, excluding mass returned to the ISM by stellar
+        evolution.
         
     :returns lir: ndarray, shape(ntarg)
         The total absorbed luminosity, in L_sun. 
@@ -289,22 +287,23 @@ def bursty_sps(lt, sfr, sps, lookback_time=[0],
         lir_tot = 0
     return wave, int_spec, mstar, lir_tot
 
+
 def bursty_lf(lt, sfr, sps_lf, lookback_time=[0], **extras):
-    """Obtain the luminosity function of stars for an arbitrary
-    complex SFH at a given lookback time.  The SFH is provided in
-    terms of SFR vs t_lookback. Note that this in in contrast to the
-    normal specification in terms of time since the big bang.
+    """Obtain the luminosity function of stars for an arbitrary complex SFH at
+    a given lookback time.  The SFH is provided in terms of SFR vs
+    t_lookback. Note that this in in contrast to the normal specification in
+    terms of time since the big bang.
 
     :param lt: ndarray, shape (ntime)
-        The lookback time sequence of the provided SFH.  Assumed to
-        have have equal linear time intervals.
+        The lookback time sequence of the provided SFH.  Assumed to have have
+        equal linear time intervals.
 
     :param sfr: ndarray, shape (ntime)
         The SFR corresponding to each element of lt, in M_sun/yr.
 
     :param sps_lf:
-        Luminosity function information, as a dictionary.  The keys of
-        the dictionary are 'bins', 'lf' and 'ssp_ages'
+        Luminosity function information, as a dictionary.  The keys of the
+        dictionary are 'bins', 'lf' and 'ssp_ages'
 
     :param lookback_time: scalar or ndarray, shape (ntarg)
         The lookback time(s) at which to obtain the spectrum. In yrs.
@@ -316,8 +315,8 @@ def bursty_lf(lt, sfr, sps_lf, lookback_time=[0], **extras):
         The integrated LF at lookback_time, in L_sun/AA
 
     :returns aw: ndarray, shape(ntarg, nage)
-        The total weights of each LF for each requested
-        lookback_time.  Useful for debugging.
+        The total weights of each LF for each requested lookback_time.  Useful
+        for debugging.
     """
     bins, lf, ssp_ages = sps_lf['bins'], sps_lf['lf'], 10**sps_lf['ssp_ages']        
     target_lt = np.atleast_1d(lookback_time)
@@ -325,12 +324,13 @@ def bursty_lf(lt, sfr, sps_lf, lookback_time=[0], **extras):
     int_lf = (lf[None,:,:] * aw[:,:,None]).sum(axis=1)
     return bins, int_lf, aw
 
-def sfh_weights(lt, sfr, ssp_ages, lookback_time=0,
-                renormalize=False, **extras):
+
+def sfh_weights(lt, sfr, ssp_ages, lookback_time=0, renormalize=False,
+                **extras):
     """        
     :param lt: ndarray, shape (ntime)
-        The lookback time sequence of the provided SFH.  Assumed to
-        have have equal linear time intervals.
+        The lookback time sequence of the provided SFH.  Assumed to have have
+        equal linear time intervals.
         
     :param sfr: ndarray, shape (ntime)
         The SFR corresponding to each element of lt, in M_sun/yr.
@@ -342,8 +342,8 @@ def sfh_weights(lt, sfr, ssp_ages, lookback_time=0,
         The lookback time(s) at which to obtain the spectrum. In yrs.
 
     :returns aw: ndarray, shape(ntarg, nage)
-        The total weights of each LF for each requested
-        lookback_time.  Useful for debugging.
+        The total weights of each LF for each requested lookback_time.  Useful
+        for debugging.
     """
     dt = lt[1] - lt[0]
     target_lt = np.atleast_1d(lookback_time)
@@ -372,9 +372,10 @@ def sfh_weights(lt, sfr, ssp_ages, lookback_time=0,
             aw[i,:] /= agg_weights.sum()
     return aw
 
+
 def gauss(x, mu, A, sigma):
-    """Project the sum of a sequence of gaussians onto the x vector,
-    using broadcasting.
+    """Project the sum of a sequence of gaussians onto the x vector, using
+    broadcasting.
 
     :param x: ndarray
         The array onto which the gaussians are to be projected.
@@ -399,47 +400,48 @@ def gauss(x, mu, A, sigma):
     val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
     return val.sum(axis = -1)
 
+
 def convert_burst_pars(fwhm_burst=0.05, f_burst=0.5, contrast=5,
                        bin_width=1.0, bin_sfr=1e9):
-    """Perform the conversion from a burst fraction, width, and
-    'contrast' to to a set of gaussian bursts stochastically
-    distributed in time, each characterized by a burst time, a width,
-    and an amplitude.  Also returns the SFR in the non-bursting mode.
+    """Perform the conversion from a burst fraction, width, and 'contrast' to
+    to a set of gaussian bursts stochastically distributed in time, each
+    characterized by a burst time, a width, and an amplitude.  Also returns the
+    SFR in the non-bursting mode.
 
     :param fwhm_burst: default 0.05
         The fwhm of the bursts to add, in Gyr.
         
     :param f_burst: default, 0.5
-        The fraction of stellar mass formed in each bin that is formed
-        in the bursts.
+        The fraction of stellar mass formed in each bin that is formed in the
+        bursts.
         
     :param contrast: default, 5
-        The approximate maximum height or amplitude of the bursts
-        above the constant background SFR.  This is only approximate
-        since it is altered to preserve f_burst and fwhm_burst even
-        though the number of busrsts is quantized.
+        The approximate maximum height or amplitude of the bursts above the
+        constant background SFR.  This is only approximate since it is altered
+        to preserve f_burst and fwhm_burst even though the number of busrsts is
+        quantized.
 
     :param bin_width: default, 1.0
         The width of the bin in Gyr.
 
     :param bin_sfr:
-        The average sfr for this time period.  The total stellar mass
-        formed during this bin is just bin_sfr * bin_width.
+        The average sfr for this time period.  The total stellar mass formed
+        during this bin is just bin_sfr * bin_width.
 
     :returns a:
         The sfr of the non bursting constant component
 
     :returns tburst:
-        A sequence of times, of length nburst, where the time gives
-        the time of the peak of the gaussian burst
+        A sequence of times, of length nburst, where the time gives the time of
+        the peak of the gaussian burst
         
     :returns A:
-        A sequence of normalizations of length nburst.  each A value
-        gives the stellar mass formed in that burst.
+        A sequence of normalizations of length nburst.  each A value gives the
+        stellar mass formed in that burst.
 
     :returns sigma:
-        A sequence of burst widths.  This is usually just
-        fwhm_burst/2.35 repeated nburst times.
+        A sequence of burst widths.  This is usually just fwhm_burst/2.35
+        repeated nburst times.
     """
     width, mstar = bin_width, bin_width * bin_sfr
     if width < fwhm_burst * 2:
@@ -511,8 +513,8 @@ def examples(filename='demo/sfhs/ddo75.lowres.ben.v1.sfh',
     
     # Get intrinsic spectrum including an age metallicity relation
     def amr(ages, **extras):
-        """This should take an array of ages (linear years) and return
-        an array of metallicities (units of log(Z/Z_sun)
+        """This should take an array of ages (linear years) and return an array
+        of metallicities (units of log(Z/Z_sun)
         """
         logz_array = -1.0 * np.ones_like(ages)
         return logz_array
