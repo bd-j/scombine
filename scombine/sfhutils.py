@@ -8,19 +8,20 @@ pc2cm = 3.086e18
 magsphere = 4.*np.pi*100*pc2cm**2
 skiprows = 0 #number of extra rows at the top of the SFH files
 
-def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False, bg_flag=False, skip_footer=2):
-    """
-    Read a `match`-produced, zcombined SFH file into a numpy
-    structured array.
+
+def load_angst_sfh(name, sfhdir='', skiprows=0, fix_youngest=False,
+                   bg_flag=False, skip_footer=2):
+    """Read a `match`-produced, zcombined SFH file into a numpy structured
+    array.
 
     :param name:
-        String giving the name (and optionally the path) of the SFH
-        file.
+        String giving the name (and optionally the path) of the SFH file.
+
     :param skiprows:
         Number of header rows in the SFH file to skip.
     """
     #hack to calculate skiprows on the fly
-    tmp = open(name, 'rb')
+    tmp = open(name, "rb")
     while len(tmp.readline().split()) < 14:
         skiprows += 1
     tmp.close()
@@ -29,21 +30,32 @@ def load_angst_sfh(name, sfhdir = '', skiprows = 0, fix_youngest = False, bg_fla
     #fn = glob.glob("{0}*{1}*sfh".format(sfhdir,name))[0]
     fn = name
     if bg_flag:
-        data = np.genfromtxt(fn, usecols=(0,1,2,3,6,12) , dtype=dt, skip_header=skiprows, skip_footer=skip_footer)
+        data = np.genfromtxt(fn, usecols=(0,1,2,3,6,12) , dtype=dt, skip_header=skiprows,
+                             skip_footer=skip_footer)
     else:
-        data = np.loadtxt(fn, usecols = (0,1,2,3,6,12) ,dtype = dt, skiprows = skiprows)
+        data = np.loadtxt(fn, usecols=(0,1,2,3,6,12) ,dtype=dt, skiprows=skiprows)
     if fix_youngest:
         pass
     return data
 
+
+def angst_av(name):
+    av = None
+    tmp = open(name, "r")
+    for line in tmp:
+        if 'Av'in line:
+            av = line[line.find('Av') + 3: line.find('Av')+8]
+            av = float(av.replace('+','0'))
+            break
+    return av
+
+
 def load_phat_sfh(name, zlegend):
-    """
-    Read a `match`-produced SFH file that was not zcombined into a
-    numpy structured array.
+    """Read a `match`-produced SFH file that was not zcombined into a numpy
+    structured array.
 
     :param name:
-        String giving the name (and optionally the path) of the SFH
-        file.
+        String giving the name (and optionally the path) of the SFH file.
         
     :param skiprows:
         Number of header rows in the SFH file to skip.
@@ -85,11 +97,11 @@ def load_phat_sfh(name, zlegend):
         sfhs += [sfh]
     return sfhs
 
+
 def read_lfs(filename):
-    """
-    Read a Villaume/FSPS produced cumulative LF file, interpolate LFs
-    at each age to a common magnitude grid, and return a dictionary
-    containing the interpolated CLFs and ancillary information.
+    """Read a Villaume/FSPS produced cumulative LF file, interpolate LFs at
+    each age to a common magnitude grid, and return a dictionary containing the
+    interpolated CLFs and ancillary information.
 
     :param filename:
         The filename (including path) of the Villaume CLF file
@@ -144,23 +156,20 @@ def read_lfs(filename):
 
     return luminosity_func
 
+
 def read_fsps(filename):
-    """
-    Read a .spec file produced by FSPS and return a number of arrays
-    giving quantities of the stellar population.  These are: [age (in
-    Gyr), log(Mstar), log(Lbol), log(SFR), spectrum, wavelength,
-    header]
+    """Read a .spec file produced by FSPS and return a number of arrays giving
+    quantities of the stellar population.  These are: [age (in Gyr),
+    log(Mstar), log(Lbol), log(SFR), spectrum, wavelength, header]
 
     :param filename:
         The file name of the FSPS output .spec file, including path.
         
     :returns age:
-        The age of the stellar population (in Gyr).  1D array of shape
-        (Nage,)
+        The age of the stellar population (in Gyr).  1D array of shape (Nage,)
         
     :returns mstar:
-        The log of the stellar mass (in solar units) at `age'.  1D
-        array.
+        The log of the stellar mass (in solar units) at `age'.  1D array.
         
     :returns lbol:
         The log of the bolometric luminosity at `age'.  1D array
@@ -169,8 +178,8 @@ def read_fsps(filename):
         The log of the SFR (M_sun/yr) at `age'.  1D array
         
     :returns spectrum:
-        The spectrum of the stellar population at `age'.  (L_sun/Hz),
-        2D array of shape (Nage, Nwave)
+        The spectrum of the stellar population at `age'.  (L_sun/Hz), 2D array
+        of shape (Nage, Nwave)
         
     :returns wavelngth:
         The wavelength vector (AA).  1D array.
@@ -195,17 +204,17 @@ def read_fsps(filename):
             s = [float(l) for l in f.readline().split()]
             spec.append(s)
         f.close()
-    return np.array(age), np.array(logmass), np.array(loglbol), np.array(logsfr), np.array(spec), np.array(wave), header
+    return (np.array(age), np.array(logmass), np.array(loglbol), np.array(logsfr),
+            np.array(spec), np.array(wave), header)
 
-def weights_1DLinear(model_points, target_points,
-                     extrapolate = False, left=0.0, right=0.0,
-                     **extras):
-    """The interpolation weights are determined from 1D linear
-    interpolation.
+
+def weights_1DLinear(model_points, target_points, extrapolate=False,
+                     left=0.0, right=0.0, **extras):
+    """The interpolation weights are determined from 1D linear interpolation.
     
     :param model_points: ndarray, shape(nmod)
-        The parameter coordinate of the available models.  assumed to
-        be sorted ascending
+        The parameter coordinate of the available models.  assumed to be sorted
+        ascending
                 
     :param target_points: ndarray, shape(ntarg)
         The coordinate to which you wish to interpolate
@@ -245,7 +254,8 @@ def weights_1DLinear(model_points, target_points,
     #inds = order[inds]
     return inds, weights
 
-def plot_agespec(name, sfh, flux, rp, rebin, ylim = None):
+
+def plot_agespec(name, sfh, flux, rp, rebin, ylim=None):
     pl.figure(1)
     for i in xrange(rp['nrebin']):
         binned_flux = flux[:, rebin['start'][i]:rebin['end'][i]+1].sum(axis =1)
