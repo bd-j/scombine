@@ -25,20 +25,24 @@ sfh[0]['t1'] = 0.
 mtot = ((sfh['t2'] - sfh['t1']) * sfh['sfr']).sum()
 
 # generate a high temporal resolution SFH, with bursts if f_burst > 0
-lt, sfr, tb = burst_sfh(sfh=sfh, fwhm_burst=fwhm_burst, f_burst=f_burst, contrast=contrast)
+lt, sfr, tb = bsp.burst_sfh(sfh=sfh, fwhm_burst=fwhm_burst, f_burst=f_burst, contrast=contrast)
 # get the interpolation weights.  This does not have to be run in
 # general (it is run interior to bursty_sps) unless you are
 # debugging or for plotting purposes
-aw = sfh_weights(lt, sfr, 10**sps.ssp_ages, lookback_time=lookback_time)
+aw = bsp.sfh_weights(lt, sfr, 10**sps.ssp_ages, lookback_time=lookback_time)
 # get the intrinsic spectra at the lookback_times specified.
-wave, spec, mstar, _ = bursty_sps(lt, sfr, sps, lookback_time=lookback_time)
+wave, spec, mstar, _ = bsp.bursty_sps(lt, sfr, sps, lookback_time=lookback_time)
 # get reddened spectra, Calzetti foreground screen
-wave, red_spec, _, lir = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
-                                    dust_curve=attenuation.calzetti, av=1, dav=0)
+wave, red_spec, _, lir = bsp.bursty_sps(lt, sfr, sps,
+                                        lookback_time=lookback_time,
+                                        dust_curve=attenuation.calzetti,
+                                        av=1, dav=0)
 # get reddened spectra, SexA differntial extinction plus SMC
 dav = sexAmodel(davmax=1.0, ages=10**sps.ssp_ages)
-wave, red_spec, _, lir = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
-                                    dust_curve=attenuation.smc, av=1, dav=dav)
+wave, red_spec, _, lir = bsp.bursty_sps(lt, sfr, sps,
+                                        lookback_time=lookback_time,
+                                        dust_curve=attenuation.smc,
+                                        av=1, dav=dav)
 
 # Get intrinsic spectrum including an age metallicity relation
 def amr(ages, **extras):
@@ -47,8 +51,9 @@ def amr(ages, **extras):
     """
     logz_array = -1.0 * np.ones_like(ages)
     return logz_array
-wave, spec, mstar, _ = bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
-                                  logzsol=amr(10**sps.ssp_ages, sfh=sfh))
+
+wave, spec, mstar, _ = bsp.bursty_sps(lt, sfr, sps, lookback_time=lookback_time,
+                                      logzsol=amr(10**sps.ssp_ages, sfh=sfh))
 
 
 # Output plotting.
