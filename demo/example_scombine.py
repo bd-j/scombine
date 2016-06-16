@@ -5,6 +5,8 @@ import matplotlib.pyplot as pl
 """
 A quick test and demonstration of the algorithms.
 """
+
+import fsps
 from scombine.sfhutils import load_angst_sfh
 from scombine.dust import sexAmodel
 import scombine.bursty_sfh as bsp
@@ -16,6 +18,7 @@ sps.params['logzsol'] = -1.0
 
 # Load the input SFH, and set any bursts if desired (set f_burst=0
 # to not add bursts)
+filename = 'sfhs/ddo71.lowres.ben.v1.sfh'
 f_burst, fwhm_burst, contrast = 0.5, 0.05 * 1e9, 5
 sfh = load_angst_sfh(filename)
 sfh['t1'] = 10.**sfh['t1']
@@ -23,6 +26,9 @@ sfh['t2'] = 10.**sfh['t2']
 sfh['sfr'][0] *=  1 - (sfh['t1'][0]/sfh['t2'][0])
 sfh[0]['t1'] = 0.
 mtot = ((sfh['t2'] - sfh['t1']) * sfh['sfr']).sum()
+
+# choose lookback times to generate
+lookback_time = [0, 1e8]
 
 # generate a high temporal resolution SFH, with bursts if f_burst > 0
 lt, sfr, tb = bsp.burst_sfh(sfh=sfh, fwhm_burst=fwhm_burst, f_burst=f_burst, contrast=contrast)
