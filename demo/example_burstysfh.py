@@ -1,7 +1,9 @@
-import sys, os, glob
+import os, glob
 import numpy as np
+import matplotlib.pyplot as pl
+
 import fsps
-import sfhutils as utils
+import scombine.sfhutils as utils
 import scombine.bursty_sfh as bsp
 from sedpy import attenuation, observate
 
@@ -39,7 +41,7 @@ for i, filen in enumerate(files):
     
     # Get the attenuated spectra
     #  and IR luminosities
-    wave, spec, mass, lir = bsp.bursty_sps(lt, sfr, sps, lookback_times=t_lookback,
+    wave, spec, mass, lir = bsp.bursty_sps(lt, sfr, sps, lookback_time=t_lookback,
                                            av=av, dav=dav, nsplit=30)
     for j, jt in enumerate(t_lookback):
         pl.plot(wave, spec[j,:] * wave * bsp.to_cgs,
@@ -62,3 +64,4 @@ pl.xlabel(r'wavelength ($\AA$)')
 pl.ylabel(r'$\lambda$L$_\lambda$ (erg/s/cm$^2$ @ 10pc)')
 pl.legend(loc = 'lower right')
 pl.savefig('demo_bsp.png')
+pl.show()
