@@ -45,7 +45,7 @@ for i, filen in enumerate(files):
                                            av=av, dav=dav, nsplit=30)
     for j, jt in enumerate(t_lookback):
         pl.plot(wave, spec[j,:] * wave * bsp.to_cgs,
-                label = '{0} @ {1}'.format(objname[j], tl[j]))
+                label = '{0} @ {1}'.format(objname[i], tl[j]))
         
     # Project onto filters to get
     #   absolute magnitudes
