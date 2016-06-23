@@ -10,7 +10,7 @@ skiprows = 0 #number of extra rows at the top of the SFH files
 
 
 def load_angst_sfh(name, sfhdir='', skiprows=0, fix_youngest=False,
-                   bg_flag=False):
+                   bg_flag=False, linear_units=False):
     """Read a `match`-produced, zcombined SFH file into a numpy structured
     array.
 
@@ -43,6 +43,11 @@ def load_angst_sfh(name, sfhdir='', skiprows=0, fix_youngest=False,
                           skiprows=skiprows)
     if fix_youngest:
         pass
+    if linear_units:
+        data['t1'] = 10.**data['t1']
+        data['t2'] = 10.**data['t2']
+        data['sfr'][0] *=  1 - (data['t1'][0]/data['t2'][0])
+        data[0]['t1'] = 0.
     return data
 
 
