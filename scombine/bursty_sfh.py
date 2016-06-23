@@ -326,7 +326,7 @@ def bursty_lf(lt, sfr, sps_lf, lookback_time=[0], **extras):
 
 
 def sfh_weights(lt, sfr, ssp_ages, lookback_time=0, renormalize=False,
-                **extras):
+                log_interp=False, **extras):
     """        
     :param lt: ndarray, shape (ntime)
         The lookback time sequence of the provided SFH.  Assumed to have have
@@ -341,6 +341,9 @@ def sfh_weights(lt, sfr, ssp_ages, lookback_time=0, renormalize=False,
     :param lookback_time: scalar or ndarray, shape (ntarg)
         The lookback time(s) at which to obtain the spectrum. In yrs.
 
+    :param log_interp: (default: False)
+        Do the interpolation weights in log time
+        
     :returns aw: ndarray, shape(ntarg, nage)
         The total weights of each LF for each requested lookback_time.  Useful
         for debugging.
@@ -359,7 +362,10 @@ def sfh_weights(lt, sfr, ssp_ages, lookback_time=0, renormalize=False,
         tmp_t = tmp_t[order]
         tmp_sfr = tmp_sfr[order]
         # get weights to interpolate the log_t array
-        inds, weights = weights_1DLinear(ssp_ages, tmp_t, **extras)
+        if log_interp:
+            inds, weights = weights_1DLinear(np.log(ssp_ages), np.log(tmp_t), **extras)
+        else:
+            inds, weights = weights_1DLinear(ssp_ages, tmp_t, **extras)
         # aggregate the weights for each ssp time index, after
         # accounting for SFR *dt
         tmp_dt = np.gradient(tmp_t)
