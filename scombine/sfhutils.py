@@ -10,7 +10,7 @@ skiprows = 0 #number of extra rows at the top of the SFH files
 
 
 def load_angst_sfh(name, sfhdir='', skiprows=0, fix_youngest=False,
-                   bg_flag=False, skip_footer=2):
+                   bg_flag=False, linear_units=False):
     """Read a `match`-produced, zcombined SFH file into a numpy structured
     array.
 
@@ -24,18 +24,30 @@ def load_angst_sfh(name, sfhdir='', skiprows=0, fix_youngest=False,
     tmp = open(name, "rb")
     while len(tmp.readline().split()) < 14:
         skiprows += 1
+    footstr = tmp.readlines()[-1]
     tmp.close()
     ty = '<f8'
     dt = np.dtype([('t1', ty), ('t2',ty), ('dmod',ty), ('sfr',ty), ('met', ty), ('mformed',ty)])
     #fn = glob.glob("{0}*{1}*sfh".format(sfhdir,name))[0]
     fn = name
     if bg_flag:
-        data = np.genfromtxt(fn, usecols=(0,1,2,3,6,12) , dtype=dt, skip_header=skiprows,
+        if footstr[0] == 'b':
+            skip_footer = int(footstr.split(' ')[1])
+        else:
+            skip_footer = 0
+        data = np.genfromtxt(fn, usecols=(0,1,2,3,6,12) , dtype=dt,
+                             skip_header=skiprows,
                              skip_footer=skip_footer)
     else:
-        data = np.loadtxt(fn, usecols=(0,1,2,3,6,12) ,dtype=dt, skiprows=skiprows)
+        data = np.loadtxt(fn, usecols=(0,1,2,3,6,12) ,dtype=dt,
+                          skiprows=skiprows)
     if fix_youngest:
         pass
+    if linear_units:
+        data['t1'] = 10.**data['t1']
+        data['t2'] = 10.**data['t2']
+        data['sfr'][0] *=  1 - (data['t1'][0]/data['t2'][0])
+        data[0]['t1'] = 0.
     return data
 
 
