@@ -19,7 +19,7 @@ sps.params['logzsol'] = -1.0
 # Load the input SFH, and set any bursts if desired (set f_burst=0
 # to not add bursts)
 filename = 'sfhs/ddo71.lowres.ben.v1.sfh'
-f_burst, fwhm_burst, contrast = 0.5, 0.05 * 1e9, 5
+f_burst, fwhm_burst, contrast = 0.0, 0.05 * 1e9, 5
 sfh = load_angst_sfh(filename)
 sfh['t1'] = 10.**sfh['t1']
 sfh['t2'] = 10.**sfh['t2']
@@ -48,7 +48,7 @@ dav = sexAmodel(davmax=1.0, ages=10**sps.ssp_ages)
 wave, red_spec, _, lir = bsp.bursty_sps(lt, sfr, sps,
                                         lookback_time=lookback_time,
                                         dust_curve=attenuation.smc,
-                                        av=1, dav=dav)
+                                        av=0, dav=dav)
 
 # Get intrinsic spectrum including an age metallicity relation
 def amr(ages, **extras):
